@@ -34,6 +34,7 @@ includes security features to ensure all commands require explicit user consent.
 		NewAgentCommand(),
 		NewSetupCommand(),
 		NewModelCommand(),
+		NewConfigCommand(),
 	)
 
 	return rootCmd
@@ -42,7 +43,7 @@ includes security features to ensure all commands require explicit user consent.
 // Execute runs the root command
 func Execute() {
 	rootCmd := NewRootCommand()
-	
+
 	if err := rootCmd.Execute(); err != nil {
 		red.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

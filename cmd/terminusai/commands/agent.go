@@ -119,11 +119,16 @@ func agentTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load policy: %w", err)
 	}
 
-	// Set always-allow mode if requested
-	if alwaysAllow {
+	// Set always-allow mode if requested via flag or config
+	userConfig := cm.GetUserConfig()
+	if alwaysAllow || userConfig.AlwaysAllow {
 		policyStore.SetAlwaysAllow(true)
 		if verbose {
-			display.PrintInfo("Always-allow mode enabled - all commands will be approved automatically")
+			if alwaysAllow {
+				display.PrintInfo("Always-allow mode enabled via flag - all commands will be approved automatically")
+			} else {
+				display.PrintInfo("Always-allow mode enabled via config - all commands will be approved automatically")
+			}
 		}
 	}
 
@@ -169,16 +174,9 @@ func agentTask(cmd *cobra.Command, args []string) error {
 		return policyStore.Save()
 	}
 
-	// Use enhanced agent by default, fall back to original for minimal mode
-	if minimal {
-		if err := agent.RunAgentTask(task, llmProvider, policyStore, cm.IsVerbose()); err != nil {
-			return fmt.Errorf("agent task failed: %w", err)
-		}
-	} else {
-		enhancedAgent := agent.NewEnhancedAgent(llmProvider, policyStore, workingDir, verbose, debug)
-		if err := enhancedAgent.RunTask(task); err != nil {
-			return fmt.Errorf("enhanced agent task failed: %w", err)
-		}
+	// Always use enhanced functionality with working directory support
+	if err := agent.RunAgentTaskWithWorkingDir(task, llmProvider, policyStore, workingDir, cm.IsVerbose()); err != nil {
+		return fmt.Errorf("agent task failed: %w", err)
 	}
 
 	return policyStore.Save()

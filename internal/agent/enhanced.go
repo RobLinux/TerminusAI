@@ -15,27 +15,6 @@ import (
 	"terminusai/internal/ui"
 )
 
-const (
-	// maxAPIRetries defines the maximum number of retries for API errors
-	maxAPIRetries = 3
-	// retryDelay is the base delay between retries (exponential backoff)
-	retryDelay = 2 * time.Second
-)
-
-// isRetryableError checks if an error is worth retrying (API overload, timeout, etc.)
-func isRetryableError(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := strings.ToLower(err.Error())
-	return strings.Contains(errStr, "overloaded") ||
-		strings.Contains(errStr, "timeout") ||
-		strings.Contains(errStr, "rate limit") ||
-		strings.Contains(errStr, "502") ||
-		strings.Contains(errStr, "503") ||
-		strings.Contains(errStr, "504")
-}
-
 // EnhancedAgent provides an agent with better UI and interactivity
 type EnhancedAgent struct {
 	provider    providers.LLMProvider
@@ -428,10 +407,8 @@ func (ea *EnhancedAgent) handleSearchFilesEnhanced(action *AgentAction, transcri
 	}
 
 	fileTypes := action.FileTypes
-	if len(fileTypes) == 0 {
-		// Default to common text file types
-		fileTypes = []string{"go", "js", "ts", "py", "java", "c", "cpp", "h", "txt", "md", "json", "yaml", "yml", "xml", "html", "css"}
-	}
+	// If no file types specified, search in all files (no filtering)
+	// Users can specify fileTypes to limit search scope if needed
 
 	// Show the action
 	actionUI := ea.display.ShowSearchFiles(pattern, searchPath, 0) // Will update count later
@@ -510,9 +487,14 @@ func (ea *EnhancedAgent) performFileSearch(pattern, searchPath string, fileTypes
 	}
 
 	// Create file type map for quick lookup
-	typeMap := make(map[string]bool)
-	for _, ext := range fileTypes {
-		typeMap["."+ext] = true
+	var typeMap map[string]bool
+	searchAllFiles := len(fileTypes) == 0
+
+	if !searchAllFiles {
+		typeMap = make(map[string]bool)
+		for _, ext := range fileTypes {
+			typeMap["."+ext] = true
+		}
 	}
 
 	var results []SearchResult
@@ -526,9 +508,8 @@ func (ea *EnhancedAgent) performFileSearch(pattern, searchPath string, fileTypes
 		if info.IsDir() {
 			// Skip common heavy directories
 			dirName := filepath.Base(path)
-			if dirName == "node_modules" || dirName == ".git" || dirName == "dist" ||
-				dirName == "build" || dirName == "target" || dirName == ".venv" ||
-				dirName == "__pycache__" || dirName == "coverage" {
+			if dirName == "node_modules" || dirName == ".git" || dirName == ".venv" ||
+				dirName == "__pycache__" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -541,7 +522,7 @@ func (ea *EnhancedAgent) performFileSearch(pattern, searchPath string, fileTypes
 		}
 
 		// Skip large files
-		if info.Size() > 1024*1024 { // 1MB limit
+		if info.Size() > maxFileSize {
 			return nil
 		}
 
