@@ -44,8 +44,8 @@ func handleListFiles(action *AgentAction, transcript *[]providers.ChatMessage, w
 	}
 
 	// Limit output
-	if len(lines) > 5000 {
-		lines = lines[:5000]
+	if len(lines) > 500 {
+		lines = lines[:500]
 	}
 	out := strings.Join(lines, "\n")
 

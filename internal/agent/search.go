@@ -127,7 +127,8 @@ func listDir(dir string, depth int, lines *[]string, base string) error {
 	heavy := map[string]bool{
 		"node_modules": true, ".git": true, "dist": true, "build": true, "out": true,
 		".next": true, "coverage": true, ".venv": true, "venv": true, "__pycache__": true,
-		"target": true, ".turbo": true, ".cache": true,
+		"target": true, ".turbo": true, ".cache": true, "bin": true, "obj": true,
+		".vs": true, "packages": true, "TestResults": true,
 	}
 
 	for _, entry := range entries {
