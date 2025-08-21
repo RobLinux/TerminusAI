@@ -19,7 +19,6 @@ func TestConstants(t *testing.T) {
 		{"GitHubOAuthDeviceScopes", GitHubOAuthDeviceScopes, "read:user"},
 		{"ProviderOpenAI", ProviderOpenAI, "openai"},
 		{"ProviderAnthropic", ProviderAnthropic, "anthropic"},
-		{"ProviderGitHub", ProviderGitHub, "github"},
 	}
 
 	for _, tt := range tests {

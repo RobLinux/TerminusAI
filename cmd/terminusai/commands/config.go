@@ -69,9 +69,9 @@ func configShow(cmd *cobra.Command, args []string) error {
 	}
 
 	if cfg.GitHubToken != "" {
-		fmt.Printf("GitHub Token:  configured\n")
+		fmt.Printf("Copilot Token: configured\n")
 	} else {
-		fmt.Printf("GitHub Token:  not configured\n")
+		fmt.Printf("Copilot Token: not configured\n")
 	}
 
 	return nil
@@ -85,7 +85,7 @@ func newConfigSetCommand() *cobra.Command {
 		Long: `Set a configuration value that will be used as default for future commands.
 
 Available keys:
-  provider        Set default LLM provider (openai|anthropic|github|copilot)
+  provider        Set default LLM provider (openai|anthropic|copilot)
   model          Set default model ID
   always-allow   Set always-allow mode (true|false)
 
@@ -134,8 +134,8 @@ func configSet(cmd *cobra.Command, args []string) error {
 
 	switch key {
 	case "provider":
-		if value != common.ProviderOpenAI && value != common.ProviderAnthropic && value != common.ProviderGitHub {
-			return fmt.Errorf("invalid provider: %s (must be openai, anthropic, or github)", value)
+		if value != common.ProviderOpenAI && value != common.ProviderAnthropic && value != common.ProviderCopilot {
+			return fmt.Errorf("invalid provider: %s (must be openai, anthropic, or copilot)", value)
 		}
 		cfg.Provider = value
 	case "model":
@@ -188,7 +188,7 @@ func configGet(cmd *cobra.Command, args []string) error {
 // configList lists all configuration keys
 func configList(cmd *cobra.Command, args []string) error {
 	fmt.Println("Available configuration keys:")
-	fmt.Println("  provider        Default LLM provider (openai|anthropic|github|copilot)")
+	fmt.Println("  provider        Default LLM provider (openai|anthropic|copilot)")
 	fmt.Println("  model          Default model ID")
 	fmt.Println("  always-allow   Always allow commands without prompting (true|false)")
 	return nil

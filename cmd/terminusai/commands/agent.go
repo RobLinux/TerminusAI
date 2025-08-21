@@ -40,7 +40,7 @@ Example:
   terminusai agent -y "install dependencies and build project"`,
 	}
 
-	cmd.Flags().String("provider", "", "LLM provider: openai|anthropic|github|copilot")
+	cmd.Flags().String("provider", "", "LLM provider: openai|anthropic|copilot")
 	cmd.Flags().String("model", "", "Model ID override")
 	cmd.Flags().String("working-dir", "", "Working directory for agent operations")
 	cmd.Flags().Bool("setup", false, "Run setup wizard before executing")

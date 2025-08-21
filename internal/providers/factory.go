@@ -11,12 +11,10 @@ func GetProvider(name string, model string) (LLMProvider, error) {
 		return NewOpenAIProvider(model), nil
 	case "anthropic", "claude":
 		return NewAnthropicProvider(model), nil
-	case "github":
-		return NewGitHubProvider(model), nil
 	case "copilot", "copilot-api", "copilot-completion":
-		// For explicit Copilot provider, enable Copilot mode
-		return NewGitHubProviderWithCopilotMode(model), nil
+		// All Copilot requests go to Copilot mode
+		return NewCopilotProvider(model), nil
 	default:
-		return nil, errors.New("unknown provider '" + name + "'. Use openai|anthropic|github|copilot")
+		return nil, errors.New("unknown provider '" + name + "'. Use openai|anthropic|copilot")
 	}
 }

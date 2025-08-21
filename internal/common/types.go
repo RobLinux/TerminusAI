@@ -27,5 +27,5 @@ const (
 const (
 	ProviderOpenAI    = "openai"
 	ProviderAnthropic = "anthropic"
-	ProviderGitHub    = "github"
+	ProviderCopilot   = "copilot"
 )

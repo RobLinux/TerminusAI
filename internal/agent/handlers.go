@@ -150,8 +150,8 @@ func handleShell(action *AgentAction, transcript *[]providers.ChatMessage, polic
 
 	switch action.Shell {
 	case "powershell":
-		shell = "pwsh"
-		args = []string{"-c", action.Command}
+		shell = "powershell.exe"
+		args = []string{"-Command", action.Command}
 	case "cmd":
 		shell = "cmd"
 		args = []string{"/c", action.Command}
@@ -159,8 +159,8 @@ func handleShell(action *AgentAction, transcript *[]providers.ChatMessage, polic
 		shell = "bash"
 		args = []string{"-c", action.Command}
 	default:
-		shell = "pwsh" // Default to PowerShell
-		args = []string{"-c", action.Command}
+		shell = "powershell.exe" // Default to PowerShell
+		args = []string{"-Command", action.Command}
 	}
 
 	cmd := exec.Command(shell, args...)

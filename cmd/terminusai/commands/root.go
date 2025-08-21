@@ -24,7 +24,7 @@ func NewRootCommand() *cobra.Command {
 		Long: `TerminusAI is a powerful CLI tool that uses AI to understand your tasks,
 plan the necessary commands, and execute them with your approval.
 
-It supports multiple LLM providers (OpenAI, Anthropic, GitHub Models) and 
+It supports multiple LLM providers (OpenAI, Anthropic, Copilot) and 
 includes security features to ensure all commands require explicit user consent.`,
 	}
 

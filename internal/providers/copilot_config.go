@@ -12,61 +12,50 @@ import (
 	"terminusai/internal/config"
 )
 
-// GitHubProviderConfig is a config-based GitHub provider
-type GitHubProviderConfig struct {
-	name        string
-	config      config.ProviderConfig
-	cm          *config.ConfigManager
-	copilotMode bool
+// CopilotProviderConfig is a config-based Copilot provider
+type CopilotProviderConfig struct {
+	name   string
+	config config.ProviderConfig
+	cm     *config.ConfigManager
 }
 
-// NewGitHubProviderWithConfig creates a new GitHub provider using configuration
-func NewGitHubProviderWithConfig(cm *config.ConfigManager, providerConfig config.ProviderConfig) *GitHubProviderConfig {
-	// Detect Copilot mode based on provider name, base URL, or model
-	effectiveProvider := cm.GetEffectiveProvider()
-	copilotMode := effectiveProvider == "copilot" || 
-		strings.Contains(providerConfig.BaseURL, "copilot") ||
-		strings.Contains(providerConfig.DefaultModel, "copilot")
+// NewCopilotProviderWithConfig creates a new Copilot provider using configuration
+func NewCopilotProviderWithConfig(cm *config.ConfigManager, providerConfig config.ProviderConfig) *CopilotProviderConfig {
+	providerName := "copilot"
 
-	providerName := "github"
-	if copilotMode {
-		providerName = "copilot"
-	}
-
-	return &GitHubProviderConfig{
-		name:        providerName,
-		config:      providerConfig,
-		cm:          cm,
-		copilotMode: copilotMode,
+	return &CopilotProviderConfig{
+		name:   providerName,
+		config: providerConfig,
+		cm:     cm,
 	}
 }
 
-func (p *GitHubProviderConfig) Name() string {
+func (p *CopilotProviderConfig) Name() string {
 	return p.name
 }
 
-func (p *GitHubProviderConfig) DefaultModel() string {
+func (p *CopilotProviderConfig) DefaultModel() string {
 	if model := p.cm.GetEffectiveModel(); model != "" {
 		return model
 	}
 	return p.config.DefaultModel
 }
 
-func (p *GitHubProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {
+func (p *CopilotProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {
 	// If in Copilot mode, delegate to standalone provider for now
-	if p.copilotMode {
+	if p.name == "copilot" {
 		// Get the effective model from configuration
 		model := p.DefaultModel()
 		if opts != nil && opts.Model != "" {
 			model = opts.Model
 		}
-		
-		// Create a standalone GitHub provider in Copilot mode with the correct model
-		standalone := NewGitHubProviderWithCopilotMode(model)
+
+		// Create a standalone Copilot provider in Copilot mode with the correct model
+		standalone := NewCopilotProvider(model)
 		return standalone.Chat(messages, opts)
 	}
 
-	// Standard GitHub Models chat
+	// Standard Copilot Models chat
 	model := p.DefaultModel()
 	if opts != nil && opts.Model != "" {
 		model = opts.Model
@@ -74,7 +63,7 @@ func (p *GitHubProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (
 
 	url := p.config.BaseURL + "/v1/chat/completions"
 
-	reqBody := GitHubRequest{
+	reqBody := CopilotRequest{
 		Model:    model,
 		Messages: messages,
 	}
@@ -88,7 +77,7 @@ func (p *GitHubProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (
 	debug := p.cm.IsDebug()
 
 	if verbose || debug {
-		logGitHubRequest(reqBody, len(messages), p.config.APIKey, url, debug)
+		logCopilotRequest(reqBody, len(messages), p.config.APIKey, url, debug)
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -127,16 +116,16 @@ func (p *GitHubProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (
 		return "", p.handleError(resp.StatusCode, body)
 	}
 
-	var githubResp GitHubResponse
-	if err := json.Unmarshal(body, &githubResp); err != nil {
+	var copilotResp CopilotResponse
+	if err := json.Unmarshal(body, &copilotResp); err != nil {
 		return "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	if len(githubResp.Choices) == 0 {
+	if len(copilotResp.Choices) == 0 {
 		return "", fmt.Errorf("no choices in response")
 	}
 
-	result := githubResp.Choices[0].Message.Content
+	result := copilotResp.Choices[0].Message.Content
 
 	if verbose || debug {
 		logResponse(result, debug)
@@ -145,10 +134,10 @@ func (p *GitHubProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (
 	return result, nil
 }
 
-func (p *GitHubProviderConfig) handleError(statusCode int, body []byte) error {
+func (p *CopilotProviderConfig) handleError(statusCode int, body []byte) error {
 	details := string(body)
 
-	var errorResp GitHubErrorResponse
+	var errorResp CopilotErrorResponse
 	if err := json.Unmarshal(body, &errorResp); err == nil {
 		details = fmt.Sprintf(`{"error":{"message":"%s"},"message":"%s"}`, errorResp.Error.Message, errorResp.Message)
 
@@ -159,15 +148,15 @@ func (p *GitHubProviderConfig) handleError(statusCode int, body []byte) error {
 
 		if statusCode == 401 || statusCode == 403 {
 			if strings.Contains(strings.ToLower(msg), "models is disabled") {
-				return fmt.Errorf("GitHub Models appears disabled for your org. Choose another provider (run: terminusai setup) or override: --provider openai|anthropic")
+				return fmt.Errorf("Copilot Models appears disabled for your org. Choose another provider (run: terminusai setup) or override: --provider openai|anthropic")
 			}
 			if strings.Contains(strings.ToLower(msg), "unauthoriz") ||
 				strings.Contains(strings.ToLower(msg), "invalid") ||
 				strings.Contains(strings.ToLower(msg), "token") {
-				return fmt.Errorf("GitHub token unauthorized. Re-run setup to authenticate or paste a valid Copilot/Models token")
+				return fmt.Errorf("Copilot token unauthorized. Re-run setup to authenticate or paste a valid Copilot/Models token")
 			}
 		}
 	}
 
-	return fmt.Errorf("GitHub provider error: %d %s", statusCode, details)
+	return fmt.Errorf("Copilot provider error: %d %s", statusCode, details)
 }

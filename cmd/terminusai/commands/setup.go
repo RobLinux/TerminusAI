@@ -14,7 +14,7 @@ func NewSetupCommand() *cobra.Command {
 		Long: `The setup command guides you through configuring TerminusAI for first-time use.
 
 It will help you:
-- Choose your preferred AI provider (OpenAI, Anthropic, or GitHub Models)
+- Choose your preferred AI provider (OpenAI, Anthropic, or Copilot)
 - Configure API credentials securely
 - Set default models and preferences
 - Test your configuration
@@ -36,12 +36,12 @@ func setupWizard(cmd *cobra.Command, args []string) error {
 	}
 
 	green.Println("Setup complete.")
-	
+
 	provider := cfg.Provider
 	if provider == "" {
 		provider = "openai"
 	}
-	
+
 	model := cfg.Model
 	if model != "" {
 		white.Printf("Default provider: %s, model: %s\n", provider, model)

@@ -73,8 +73,8 @@ func modelConfig(cmd *cobra.Command, args []string) error {
 func listCopilotModels(cmd *cobra.Command, args []string) error {
 	jsonOutput, _ := cmd.Flags().GetBool("json")
 
-	// Create GitHub provider to access Copilot API
-	provider := providers.NewGitHubProvider("copilot")
+	// Create Copilot provider to access Copilot API
+	provider := providers.NewCopilotProvider("copilot")
 
 	models, err := provider.GetModels()
 	if err != nil {

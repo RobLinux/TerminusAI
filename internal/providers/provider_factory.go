@@ -22,8 +22,8 @@ func NewProviderWithConfig(cm *config.ConfigManager, providerName string) (LLMPr
 		return NewOpenAIProviderWithConfig(cm, providerConfig), nil
 	case "anthropic":
 		return NewAnthropicProviderWithConfig(cm, providerConfig), nil
-	case "github", "copilot", "copilot-api":
-		return NewGitHubProviderWithConfig(cm, providerConfig), nil
+	case "copilot", "copilot-api":
+		return NewCopilotProviderWithConfig(cm, providerConfig), nil
 	default:
 		return nil, fmt.Errorf("unsupported provider: %s", providerName)
 	}

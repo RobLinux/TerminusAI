@@ -29,6 +29,6 @@ type CompletionProvider interface {
 	Complete(prompt string, opts *CompletionOptions) (string, error)
 }
 
-// Ensure GitHubProvider implements both interfaces
-var _ LLMProvider = (*GitHubProvider)(nil)
-var _ CompletionProvider = (*GitHubProvider)(nil)
+// Ensure CopilotProvider implements both interfaces
+var _ LLMProvider = (*CopilotProvider)(nil)
+var _ CompletionProvider = (*CopilotProvider)(nil)

@@ -311,8 +311,8 @@ func (ea *EnhancedAgent) handleShellEnhanced(action *AgentAction, transcript *[]
 
 	switch action.Shell {
 	case "powershell":
-		shell = "pwsh"
-		args = []string{"-c", action.Command}
+		shell = "powershell.exe"
+		args = []string{"-Command", action.Command}
 	case "cmd":
 		shell = "cmd"
 		args = []string{"/c", action.Command}
@@ -320,8 +320,8 @@ func (ea *EnhancedAgent) handleShellEnhanced(action *AgentAction, transcript *[]
 		shell = "bash"
 		args = []string{"-c", action.Command}
 	default:
-		shell = "pwsh"
-		args = []string{"-c", action.Command}
+		shell = "powershell.exe"
+		args = []string{"-Command", action.Command}
 	}
 
 	cmd := exec.Command(shell, args...)

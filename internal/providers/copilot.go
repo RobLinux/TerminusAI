@@ -15,23 +15,21 @@ import (
 	"time"
 )
 
-type GitHubProvider struct {
+type CopilotProvider struct {
 	name          string
 	defaultModel  string
 	modelOverride string
 	token         string
-	baseURL       string
-	copilotMode   bool
 	copilotToken  string
 }
 
-type GitHubRequest struct {
+type CopilotRequest struct {
 	Model       string        `json:"model"`
 	Messages    []ChatMessage `json:"messages"`
 	Temperature *float64      `json:"temperature,omitempty"`
 }
 
-type GitHubResponse struct {
+type CopilotResponse struct {
 	Choices []struct {
 		Message struct {
 			Content string `json:"content"`
@@ -39,7 +37,7 @@ type GitHubResponse struct {
 	} `json:"choices"`
 }
 
-type GitHubErrorResponse struct {
+type CopilotErrorResponse struct {
 	Error struct {
 		Message string `json:"message"`
 	} `json:"error"`
@@ -136,188 +134,56 @@ type CopilotChatResponse struct {
 	} `json:"usage"`
 }
 
-func NewGitHubProvider(modelOverride string) *GitHubProvider {
+// NewCopilotProvider creates a Copilot provider
+func NewCopilotProvider(modelOverride string) *CopilotProvider {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
 		token = os.Getenv("GH_TOKEN")
 	}
 
-	baseURL := os.Getenv("GITHUB_MODELS_BASE_URL")
-	if baseURL == "" {
-		baseURL = "https://models.inference.ai.azure.com"
-	}
-
-	defaultModel := os.Getenv("TERMINUS_AI_DEFAULT_MODEL")
-	if defaultModel == "" {
-		defaultModel = os.Getenv("GITHUB_MODEL")
-		if defaultModel == "" {
-			defaultModel = "gpt-4o-mini"
-		}
-	}
-
-	// Determine if we should use Copilot mode
-	copilotMode := false
-	if modelOverride == "copilot" || modelOverride == "copilot-codex" ||
-		strings.Contains(strings.ToLower(modelOverride), "copilot") {
-		copilotMode = true
-		defaultModel = "copilot-codex"
-	}
-
-	// Check for Copilot-specific environment variables
-	if os.Getenv("GITHUB_COPILOT_MODE") == "true" {
-		copilotMode = true
-	}
-
-	if token == "" && !copilotMode {
-		fmt.Println("Warning: GITHUB_TOKEN not set; github provider will fail until configured.")
-	}
-
-	return &GitHubProvider{
-		name:          "github",
-		defaultModel:  defaultModel,
-		modelOverride: modelOverride,
-		token:         token,
-		baseURL:       baseURL,
-		copilotMode:   copilotMode,
-	}
-}
-
-// NewGitHubProviderWithCopilotMode creates a GitHub provider with Copilot mode enabled
-func NewGitHubProviderWithCopilotMode(modelOverride string) *GitHubProvider {
 	// Set default Copilot model if none specified or if it's just "copilot"
 	actualModel := modelOverride
 	if modelOverride == "" || modelOverride == "copilot" {
 		actualModel = "gpt-4o" // Default Copilot chat model
 	}
 
-	provider := NewGitHubProvider(actualModel)
-	provider.copilotMode = true
-	provider.name = "copilot" // Change name to reflect Copilot mode
-	provider.defaultModel = actualModel
-
-	return provider
+	return &CopilotProvider{
+		name:          "copilot",
+		defaultModel:  actualModel,
+		modelOverride: modelOverride,
+		token:         token,
+	}
 }
 
-func (p *GitHubProvider) Name() string {
+func (p *CopilotProvider) Name() string {
 	return p.name
 }
 
-func (p *GitHubProvider) DefaultModel() string {
+func (p *CopilotProvider) DefaultModel() string {
 	return p.defaultModel
 }
 
-func (p *GitHubProvider) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {
-	// If in Copilot mode, convert chat to completion
-	if p.copilotMode {
-		return p.chatViaCopilot(messages, opts)
-	}
-
-	// Standard GitHub Models chat
-	model := p.defaultModel
-	if opts != nil && opts.Model != "" {
-		model = opts.Model
-	} else if p.modelOverride != "" {
-		model = p.modelOverride
-	}
-
-	url := p.baseURL + "/v1/chat/completions"
-
-	reqBody := GitHubRequest{
-		Model:    model,
-		Messages: messages,
-	}
-
-	// Handle temperature from environment
-	if tempStr := os.Getenv("TERMINUS_AI_TEMPERATURE"); tempStr != "" {
-		if temp, err := strconv.ParseFloat(tempStr, 64); err == nil {
-			reqBody.Temperature = &temp
-		}
-	}
-
-	verbose := false // Legacy mode - no logging
-	debug := false   // Legacy mode - no logging
-
-	if verbose || debug {
-		logGitHubRequest(reqBody, len(messages), p.token, url, debug)
-	}
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+p.token)
-
-	// Create client with insecure TLS (matching original behavior)
-	// Note: This is insecure and should be used cautiously
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", p.handleError(resp.StatusCode, body)
-	}
-
-	var githubResp GitHubResponse
-	if err := json.Unmarshal(body, &githubResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	if len(githubResp.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
-	}
-
-	result := githubResp.Choices[0].Message.Content
-
-	if verbose || debug {
-		logResponse(result, debug)
-	}
-
-	return result, nil
+func (p *CopilotProvider) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {
+	// Always use Copilot mode
+	return p.chatViaCopilot(messages, opts)
 }
 
 // chatViaCopilot handles chat via Copilot chat completions API
-func (p *GitHubProvider) chatViaCopilot(messages []ChatMessage, opts *ChatOptions) (string, error) {
+func (p *CopilotProvider) chatViaCopilot(messages []ChatMessage, opts *ChatOptions) (string, error) {
 	if err := p.ensureCopilotToken(); err != nil {
 		return "", fmt.Errorf("failed to get Copilot token: %w", err)
 	}
 
 	// Determine model from config or options
 	model := "gpt-4o" // default Copilot model
-	modelSource := "default"
-	
+
 	if opts != nil && opts.Model != "" {
 		model = opts.Model
-		modelSource = "options"
 	} else if p.modelOverride != "" && p.modelOverride != "copilot" {
 		model = p.modelOverride
-		modelSource = "override"
 	} else if p.defaultModel != "" && p.defaultModel != "copilot-codex" && p.defaultModel != "copilot" {
 		model = p.defaultModel
-		modelSource = "provider-default"
 	}
-
-	// Print the model being used by GitHub Copilot with source
-	fmt.Printf("🤖 Using GitHub Copilot model: %s (source: %s)\n", model, modelSource)
 
 	// Determine the base URL based on account type
 	baseURL := "https://api.githubcopilot.com"
@@ -359,7 +225,7 @@ func (p *GitHubProvider) chatViaCopilot(messages []ChatMessage, opts *ChatOption
 	req.Header.Set("Authorization", "Bearer "+p.copilotToken)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "GitHubCopilotChat/0.26.7")
+	req.Header.Set("User-Agent", "CopilotCopilotChat/0.26.7")
 	req.Header.Set("Editor-Version", "copilot-chat/0.26.7")
 	req.Header.Set("OpenAI-Organization", "github-copilot")
 	req.Header.Set("Copilot-Integration-Id", "vscode-chat")
@@ -411,10 +277,7 @@ func (p *GitHubProvider) chatViaCopilot(messages []ChatMessage, opts *ChatOption
 }
 
 // Complete implements the CompletionProvider interface for Copilot mode
-func (p *GitHubProvider) Complete(prompt string, opts *CompletionOptions) (string, error) {
-	if !p.copilotMode {
-		return "", fmt.Errorf("completion API only available in Copilot mode")
-	}
+func (p *CopilotProvider) Complete(prompt string, opts *CompletionOptions) (string, error) {
 
 	if err := p.ensureCopilotToken(); err != nil {
 		return "", fmt.Errorf("failed to get Copilot token: %w", err)
@@ -502,8 +365,8 @@ func (p *GitHubProvider) Complete(prompt string, opts *CompletionOptions) (strin
 	return result.String(), nil
 }
 
-// GetModels fetches available models from GitHub Copilot API
-func (p *GitHubProvider) GetModels() (*CopilotModelsResponse, error) {
+// GetModels fetches available models from Copilot Copilot API
+func (p *CopilotProvider) GetModels() (*CopilotModelsResponse, error) {
 	if err := p.ensureCopilotToken(); err != nil {
 		return nil, fmt.Errorf("failed to get Copilot token: %w", err)
 	}
@@ -524,7 +387,7 @@ func (p *GitHubProvider) GetModels() (*CopilotModelsResponse, error) {
 	req.Header.Set("Authorization", "Bearer "+p.copilotToken)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "GitHubCopilotChat/0.26.7")
+	req.Header.Set("User-Agent", "CopilotCopilotChat/0.26.7")
 	req.Header.Set("Editor-Version", "copilot-chat/0.26.7")
 	req.Header.Set("OpenAI-Organization", "github-copilot")
 	req.Header.Set("Copilot-Integration-Id", "vscode-chat")
@@ -556,10 +419,10 @@ func (p *GitHubProvider) GetModels() (*CopilotModelsResponse, error) {
 	return &modelsResp, nil
 }
 
-func (p *GitHubProvider) handleError(statusCode int, body []byte) error {
+func (p *CopilotProvider) handleError(statusCode int, body []byte) error {
 	details := string(body)
 
-	var errorResp GitHubErrorResponse
+	var errorResp CopilotErrorResponse
 	if err := json.Unmarshal(body, &errorResp); err == nil {
 		details = fmt.Sprintf(`{"error":{"message":"%s"},"message":"%s"}`, errorResp.Error.Message, errorResp.Message)
 
@@ -570,20 +433,20 @@ func (p *GitHubProvider) handleError(statusCode int, body []byte) error {
 
 		if statusCode == 401 || statusCode == 403 {
 			if strings.Contains(strings.ToLower(msg), "models is disabled") {
-				return fmt.Errorf("GitHub Models appears disabled for your org. Choose another provider (run: terminusai setup) or override: --provider openai|anthropic")
+				return fmt.Errorf("Copilot Models appears disabled for your org. Choose another provider (run: terminusai setup) or override: --provider openai|anthropic")
 			}
 			if strings.Contains(strings.ToLower(msg), "unauthoriz") ||
 				strings.Contains(strings.ToLower(msg), "invalid") ||
 				strings.Contains(strings.ToLower(msg), "token") {
-				return fmt.Errorf("GitHub token unauthorized. Re-run setup to authenticate or paste a valid Copilot/Models token")
+				return fmt.Errorf("Copilot token unauthorized. Re-run setup to authenticate or paste a valid Copilot/Models token")
 			}
 		}
 	}
 
-	return fmt.Errorf("GitHub provider error: %d %s", statusCode, details)
+	return fmt.Errorf("Copilot provider error: %d %s", statusCode, details)
 }
 
-func logGitHubRequest(reqBody GitHubRequest, msgCount int, token, url string, debug bool) {
+func logCopilotRequest(reqBody CopilotRequest, msgCount int, token, url string, debug bool) {
 	var preview string
 	if debug {
 		previewJSON, _ := json.Marshal(reqBody)
@@ -599,11 +462,11 @@ func logGitHubRequest(reqBody GitHubRequest, msgCount int, token, url string, de
 		tokenPreview = "unset"
 	}
 
-	fmt.Printf("[http] GitHub POST %s token=%s body=%s\n", url, tokenPreview, preview)
+	fmt.Printf("[http] Copilot POST %s token=%s body=%s\n", url, tokenPreview, preview)
 }
 
 // ensureCopilotToken ensures we have a valid Copilot token
-func (p *GitHubProvider) ensureCopilotToken() error {
+func (p *CopilotProvider) ensureCopilotToken() error {
 	if p.copilotToken != "" && p.isCopilotTokenValid() {
 		return nil
 	}
@@ -612,7 +475,7 @@ func (p *GitHubProvider) ensureCopilotToken() error {
 }
 
 // refreshCopilotToken gets a new Copilot session token
-func (p *GitHubProvider) refreshCopilotToken() error {
+func (p *CopilotProvider) refreshCopilotToken() error {
 	accessToken, err := p.getCopilotAccessToken()
 	if err != nil {
 		return fmt.Errorf("failed to get access token: %w", err)
@@ -655,8 +518,8 @@ func (p *GitHubProvider) refreshCopilotToken() error {
 	return nil
 }
 
-// getCopilotAccessToken gets the GitHub access token from file or environment
-func (p *GitHubProvider) getCopilotAccessToken() (string, error) {
+// getCopilotAccessToken gets the Copilot access token from file or environment
+func (p *CopilotProvider) getCopilotAccessToken() (string, error) {
 	// Try environment variable first
 	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		return token, nil
@@ -674,14 +537,14 @@ func (p *GitHubProvider) getCopilotAccessToken() (string, error) {
 	tokenFile := filepath.Join(home, ".copilot_token")
 	data, err := os.ReadFile(tokenFile)
 	if err != nil {
-		return "", fmt.Errorf("no access token found. Set GITHUB_TOKEN environment variable or run 'terminusai setup' and choose GitHub authentication")
+		return "", fmt.Errorf("no access token found. Set GITHUB_TOKEN environment variable or run 'terminusai setup' and choose Copilot authentication")
 	}
 
 	return strings.TrimSpace(string(data)), nil
 }
 
 // isCopilotTokenValid checks if the current token is still valid
-func (p *GitHubProvider) isCopilotTokenValid() bool {
+func (p *CopilotProvider) isCopilotTokenValid() bool {
 	if p.copilotToken == "" {
 		return false
 	}

@@ -63,8 +63,8 @@ func RunPlannedCommands(plan *planner.Plan, policyStore *policy.Store, verbose b
 
 		switch step.Shell {
 		case "powershell":
-			shell = "pwsh"
-			args = []string{"-c", step.Command}
+			shell = "powershell.exe"
+			args = []string{"-Command", step.Command}
 		case "cmd":
 			shell = "cmd"
 			args = []string{"/c", step.Command}
