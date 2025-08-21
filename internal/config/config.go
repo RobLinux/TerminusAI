@@ -101,7 +101,7 @@ func EnsureEnv(forceSetup bool) (*TerminusAIConfig, error) {
 	}
 
 	needsSetup := forceSetup || !(cfg.Provider != "" && (cfg.OpenAIAPIKey != "" || cfg.AnthropicAPIKey != "" || cfg.GitHubToken != ""))
-	
+
 	if needsSetup {
 		updated, err := SetupWizard(cfg)
 		if err != nil {
@@ -119,7 +119,7 @@ func SetupWizard(existing *TerminusAIConfig) (*TerminusAIConfig, error) {
 	if existing == nil {
 		existing = &TerminusAIConfig{}
 	}
-	
+
 	answers := *existing
 
 	// Choose provider
@@ -127,7 +127,7 @@ func SetupWizard(existing *TerminusAIConfig) (*TerminusAIConfig, error) {
 		Label: "Select default provider",
 		Items: []string{"OpenAI", "Anthropic (Claude)", "GitHub (Copilot / Models)"},
 	}
-	
+
 	_, providerResult, err := providerPrompt.Run()
 	if err != nil {
 		return nil, err
@@ -146,8 +146,8 @@ func SetupWizard(existing *TerminusAIConfig) (*TerminusAIConfig, error) {
 	switch answers.Provider {
 	case "openai":
 		prompt := promptui.Prompt{
-			Label:    "Enter OpenAI API key (sk-...)",
-			Mask:     '*',
+			Label: "Enter OpenAI API key (sk-...)",
+			Mask:  '*',
 			Validate: func(input string) error {
 				if len(input) < 10 {
 					return fmt.Errorf("API key required")
@@ -164,8 +164,8 @@ func SetupWizard(existing *TerminusAIConfig) (*TerminusAIConfig, error) {
 
 	case "anthropic":
 		prompt := promptui.Prompt{
-			Label:    "Enter Anthropic API key",
-			Mask:     '*',
+			Label: "Enter Anthropic API key",
+			Mask:  '*',
 			Validate: func(input string) error {
 				if len(input) < 10 {
 					return fmt.Errorf("API key required")
@@ -256,12 +256,12 @@ func handleGHCLI(answers *TerminusAIConfig) error {
 		loginCmd.Stdin = os.Stdin
 		loginCmd.Stdout = os.Stdout
 		loginCmd.Stderr = os.Stderr
-		
+
 		if err := loginCmd.Run(); err != nil {
 			fmt.Println("GitHub CLI login failed")
 			return handlePasteToken(answers, &TerminusAIConfig{})
 		}
-		
+
 		// Retry getting token
 		cmd = exec.Command("gh", "auth", "token")
 		output, err = cmd.Output()
@@ -270,7 +270,7 @@ func handleGHCLI(answers *TerminusAIConfig) error {
 			return handlePasteToken(answers, &TerminusAIConfig{})
 		}
 	}
-	
+
 	answers.GitHubToken = strings.TrimSpace(string(output))
 	return nil
 }
@@ -281,7 +281,7 @@ func handleBrowserToken(answers *TerminusAIConfig, existing *TerminusAIConfig) e
 		fmt.Println("Failed to open browser. Please visit: https://github.com/settings/tokens")
 	}
 	fmt.Println("Create or retrieve a token with access to GitHub Models/Copilot, then paste below.")
-	
+
 	return handlePasteToken(answers, existing)
 }
 
@@ -293,13 +293,13 @@ func handleOAuthDevice(answers *TerminusAIConfig, existing *TerminusAIConfig) er
 			clientID = common.HardcodedGitHubClientID
 		}
 	}
-	
+
 	token, err := gitHubDeviceFlowAuth(clientID, common.GitHubOAuthDeviceScopes)
 	if err != nil {
 		fmt.Printf("OAuth Device Flow failed: %v\n", err)
 		return handlePasteToken(answers, existing)
 	}
-	
+
 	answers.GitHubToken = token
 	answers.GitHubClientID = clientID
 	return nil
@@ -307,30 +307,30 @@ func handleOAuthDevice(answers *TerminusAIConfig, existing *TerminusAIConfig) er
 
 func handlePasteToken(answers *TerminusAIConfig, existing *TerminusAIConfig) error {
 	fmt.Println("Note: This requires a GitHub Copilot/Models API token provided by your org or obtained via gh CLI.")
-	
+
 	prompt := promptui.Prompt{
 		Label:   "Enter GitHub Copilot/Models token (leave blank to choose another provider)",
 		Mask:    '*',
 		Default: existing.GitHubToken,
 	}
-	
+
 	result, err := prompt.Run()
 	if err != nil {
 		return err
 	}
-	
+
 	if result == "" {
 		confirmPrompt := promptui.Prompt{
-			Label:     "No token provided. Would you like to select a different provider instead? (y/n)",
-			Default:   "y",
+			Label:    "No token provided. Would you like to select a different provider instead? (y/n)",
+			Default:  "y",
 			Validate: validateYesNo,
 		}
-		
+
 		confirm, err := confirmPrompt.Run()
 		if err != nil {
 			return err
 		}
-		
+
 		if strings.ToLower(confirm) == "y" || strings.ToLower(confirm) == "yes" {
 			existing.Provider = "openai"
 			newCfg, err := SetupWizard(existing)
@@ -341,9 +341,9 @@ func handlePasteToken(answers *TerminusAIConfig, existing *TerminusAIConfig) err
 			return nil
 		}
 	}
-	
+
 	answers.GitHubToken = result
-	
+
 	// Set base URL
 	urlPrompt := promptui.Prompt{
 		Label:   "GitHub Models base URL (enter to use default)",
@@ -352,29 +352,29 @@ func handlePasteToken(answers *TerminusAIConfig, existing *TerminusAIConfig) err
 	if urlPrompt.Default == "" {
 		urlPrompt.Default = "https://models.inference.ai.azure.com"
 	}
-	
+
 	urlResult, err := urlPrompt.Run()
 	if err != nil {
 		return err
 	}
 	answers.GitHubModelsBaseURL = urlResult
-	
+
 	// Preflight check if we have a token
 	if answers.GitHubToken != "" {
 		if err := gitHubModelsPreflight(answers.GitHubToken, answers.GitHubModelsBaseURL); err != nil {
 			fmt.Printf("GitHub Models preflight failed: %v\n", err)
-			
+
 			confirmPrompt := promptui.Prompt{
-				Label:     "GitHub Models seems unavailable. Switch to another provider? (y/n)",
-				Default:   "y",
+				Label:    "GitHub Models seems unavailable. Switch to another provider? (y/n)",
+				Default:  "y",
 				Validate: validateYesNo,
 			}
-			
+
 			confirm, err := confirmPrompt.Run()
 			if err != nil {
 				return err
 			}
-			
+
 			if strings.ToLower(confirm) == "y" || strings.ToLower(confirm) == "yes" {
 				existing.Provider = "openai"
 				newCfg, err := SetupWizard(existing)
@@ -386,7 +386,7 @@ func handlePasteToken(answers *TerminusAIConfig, existing *TerminusAIConfig) err
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -431,7 +431,7 @@ func SetPreferredModel(provider, model string) (*TerminusAIConfig, error) {
 				Label: fmt.Sprintf("Select preferred model for %s", provider),
 				Items: models,
 			}
-			
+
 			_, model, err = prompt.Run()
 			if err != nil {
 				return nil, err
@@ -471,7 +471,7 @@ func openURL(url string) error {
 
 func gitHubDeviceFlowAuth(clientID, scopeCSV string) (string, error) {
 	scopes := strings.Join(strings.Fields(strings.ReplaceAll(scopeCSV, ",", " ")), " ")
-	
+
 	// Create insecure HTTP client
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -520,7 +520,13 @@ func gitHubDeviceFlowAuth(clientID, scopeCSV string) (string, error) {
 		return "", fmt.Errorf("invalid device flow response")
 	}
 
-	fmt.Printf("\nTo authenticate, open %s and enter code: %s\n", startResp.VerificationURI, startResp.UserCode)
+	// Copy user code to clipboard for convenience
+	if err := common.CopyToClipboard(startResp.UserCode); err == nil {
+		fmt.Printf("\nTo authenticate, open %s and enter code: %s (copied to clipboard)\n", startResp.VerificationURI, startResp.UserCode)
+	} else {
+		fmt.Printf("\nTo authenticate, open %s and enter code: %s\n", startResp.VerificationURI, startResp.UserCode)
+	}
+
 	if startResp.VerificationURIComplete != "" {
 		fmt.Printf("Quick link: %s\n", startResp.VerificationURIComplete)
 		openURL(startResp.VerificationURIComplete)
@@ -607,7 +613,7 @@ func gitHubModelsPreflight(token, baseURL string) error {
 	}
 
 	url := strings.TrimSuffix(baseURL, "/") + "/v1/models"
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
@@ -623,14 +629,14 @@ func gitHubModelsPreflight(token, baseURL string) error {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		msg := string(body)
-		
+
 		var errResp struct {
 			Error struct {
 				Message string `json:"message"`
 			} `json:"error"`
 			Message string `json:"message"`
 		}
-		
+
 		if json.Unmarshal(body, &errResp) == nil {
 			if errResp.Error.Message != "" {
 				msg = errResp.Error.Message
@@ -638,7 +644,7 @@ func gitHubModelsPreflight(token, baseURL string) error {
 				msg = errResp.Message
 			}
 		}
-		
+
 		return fmt.Errorf("%d %s", resp.StatusCode, msg)
 	}
 

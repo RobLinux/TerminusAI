@@ -14,17 +14,23 @@ import (
 
 // GitHubProviderConfig is a config-based GitHub provider
 type GitHubProviderConfig struct {
-	name   string
-	config config.ProviderConfig
-	cm     *config.ConfigManager
+	name        string
+	config      config.ProviderConfig
+	cm          *config.ConfigManager
+	copilotMode bool
 }
 
 // NewGitHubProviderWithConfig creates a new GitHub provider using configuration
 func NewGitHubProviderWithConfig(cm *config.ConfigManager, providerConfig config.ProviderConfig) *GitHubProviderConfig {
+	// Detect Copilot mode based on base URL or model
+	copilotMode := strings.Contains(providerConfig.BaseURL, "copilot") ||
+		strings.Contains(providerConfig.DefaultModel, "copilot")
+
 	return &GitHubProviderConfig{
-		name:   "github",
-		config: providerConfig,
-		cm:     cm,
+		name:        "github",
+		config:      providerConfig,
+		cm:          cm,
+		copilotMode: copilotMode,
 	}
 }
 
@@ -40,6 +46,14 @@ func (p *GitHubProviderConfig) DefaultModel() string {
 }
 
 func (p *GitHubProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {
+	// If in Copilot mode, delegate to standalone provider for now
+	if p.copilotMode {
+		// Create a standalone GitHub provider in Copilot mode
+		standalone := NewGitHubProvider("copilot")
+		return standalone.Chat(messages, opts)
+	}
+
+	// Standard GitHub Models chat
 	model := p.DefaultModel()
 	if opts != nil && opts.Model != "" {
 		model = opts.Model
@@ -120,27 +134,27 @@ func (p *GitHubProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (
 
 func (p *GitHubProviderConfig) handleError(statusCode int, body []byte) error {
 	details := string(body)
-	
+
 	var errorResp GitHubErrorResponse
 	if err := json.Unmarshal(body, &errorResp); err == nil {
 		details = fmt.Sprintf(`{"error":{"message":"%s"},"message":"%s"}`, errorResp.Error.Message, errorResp.Message)
-		
+
 		msg := errorResp.Error.Message
 		if msg == "" {
 			msg = errorResp.Message
 		}
-		
+
 		if statusCode == 401 || statusCode == 403 {
 			if strings.Contains(strings.ToLower(msg), "models is disabled") {
 				return fmt.Errorf("GitHub Models appears disabled for your org. Choose another provider (run: terminusai setup) or override: --provider openai|anthropic")
 			}
-			if strings.Contains(strings.ToLower(msg), "unauthoriz") || 
-			   strings.Contains(strings.ToLower(msg), "invalid") || 
-			   strings.Contains(strings.ToLower(msg), "token") {
+			if strings.Contains(strings.ToLower(msg), "unauthoriz") ||
+				strings.Contains(strings.ToLower(msg), "invalid") ||
+				strings.Contains(strings.ToLower(msg), "token") {
 				return fmt.Errorf("GitHub token unauthorized. Re-run setup to authenticate or paste a valid Copilot/Models token")
 			}
 		}
 	}
-	
+
 	return fmt.Errorf("GitHub provider error: %d %s", statusCode, details)
 }

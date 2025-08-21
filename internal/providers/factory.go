@@ -11,9 +11,9 @@ func GetProvider(name string, model string) (LLMProvider, error) {
 		return NewOpenAIProvider(model), nil
 	case "anthropic", "claude":
 		return NewAnthropicProvider(model), nil
-	case "github", "copilot":
+	case "github", "copilot", "copilot-api", "copilot-completion":
 		return NewGitHubProvider(model), nil
 	default:
-		return nil, errors.New("unknown provider '" + name + "'. Use openai|anthropic|github")
+		return nil, errors.New("unknown provider '" + name + "'. Use openai|anthropic|github|copilot")
 	}
 }

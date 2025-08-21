@@ -85,7 +85,7 @@ func newConfigSetCommand() *cobra.Command {
 		Long: `Set a configuration value that will be used as default for future commands.
 
 Available keys:
-  provider        Set default LLM provider (openai|anthropic|github)
+  provider        Set default LLM provider (openai|anthropic|github|copilot)
   model          Set default model ID
   always-allow   Set always-allow mode (true|false)
 
@@ -188,7 +188,7 @@ func configGet(cmd *cobra.Command, args []string) error {
 // configList lists all configuration keys
 func configList(cmd *cobra.Command, args []string) error {
 	fmt.Println("Available configuration keys:")
-	fmt.Println("  provider        Default LLM provider (openai|anthropic|github)")
+	fmt.Println("  provider        Default LLM provider (openai|anthropic|github|copilot)")
 	fmt.Println("  model          Default model ID")
 	fmt.Println("  always-allow   Always allow commands without prompting (true|false)")
 	return nil

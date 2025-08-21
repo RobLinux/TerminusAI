@@ -26,14 +26,14 @@ before executing each command.
 Example:
   terminusai run "create a docker image from this directory"
   terminusai run "install dependencies and start the development server"`,
-		Args:    cobra.MinimumNArgs(1),
-		RunE:    runTask,
+		Args: cobra.MinimumNArgs(1),
+		RunE: runTask,
 		Example: `  terminusai run "build the project and run tests"
   terminusai run --dry-run "deploy to production"
   terminusai run --provider anthropic "analyze this codebase"`,
 	}
 
-	cmd.Flags().String("provider", "", "LLM provider: openai|anthropic|github")
+	cmd.Flags().String("provider", "", "LLM provider: openai|anthropic|github|copilot")
 	cmd.Flags().String("model", "", "Model ID override")
 	cmd.Flags().Bool("setup", false, "Run setup wizard before executing")
 	cmd.Flags().Bool("verbose", false, "Enable verbose logging")
@@ -45,7 +45,7 @@ Example:
 
 func runTask(cmd *cobra.Command, args []string) error {
 	task := strings.Join(args, " ")
-	
+
 	provider, _ := cmd.Flags().GetString("provider")
 	model, _ := cmd.Flags().GetString("model")
 	setup, _ := cmd.Flags().GetBool("setup")
@@ -59,24 +59,24 @@ func runTask(cmd *cobra.Command, args []string) error {
 
 	// Get configuration manager
 	cm := config.GetConfigManager()
-	
+
 	// Load user configuration
 	if err := cm.LoadUserConfig(); err != nil {
 		return fmt.Errorf("failed to load user config: %w", err)
 	}
-	
+
 	// Set runtime options
 	cm.SetVerbose(verbose)
 	cm.SetDebug(debug)
-	
+
 	if provider != "" {
 		cm.SetProviderOverride(provider)
 	}
-	
+
 	if model != "" {
 		cm.SetModelOverride(model)
 	}
-	
+
 	// Handle setup if needed
 	if setup || cm.GetUserConfig().Provider == "" {
 		userConfig, err := config.SetupWizard(cm.GetUserConfig())
@@ -88,7 +88,7 @@ func runTask(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to save config: %w", err)
 		}
 	}
-	
+
 	providerName := cm.GetEffectiveProvider()
 
 	llmProvider, err := providers.NewProviderWithConfig(cm, providerName)

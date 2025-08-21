@@ -15,16 +15,16 @@ type RuntimeSettings struct {
 	// Logging settings
 	Verbose bool `json:"verbose"`
 	Debug   bool `json:"debug"`
-	
+
 	// LLM settings
-	Temperature    *float64 `json:"temperature,omitempty"`
-	DefaultModel   string   `json:"defaultModel,omitempty"`
-	DefaultProvider string  `json:"defaultProvider,omitempty"`
-	
+	Temperature     *float64 `json:"temperature,omitempty"`
+	DefaultModel    string   `json:"defaultModel,omitempty"`
+	DefaultProvider string   `json:"defaultProvider,omitempty"`
+
 	// Provider overrides for current session
 	ProviderOverride string `json:"-"` // Not persisted
 	ModelOverride    string `json:"-"` // Not persisted
-	
+
 	// Session settings
 	DryRun    bool `json:"-"` // Not persisted
 	SetupMode bool `json:"-"` // Not persisted
@@ -34,13 +34,13 @@ type RuntimeSettings struct {
 type GlobalSettings struct {
 	// Application metadata
 	Version string `json:"version"`
-	
+
 	// Default runtime settings that can be overridden
 	Defaults RuntimeSettings `json:"defaults"`
-	
+
 	// Provider configurations
 	Providers map[string]ProviderConfig `json:"providers"`
-	
+
 	// Feature flags
 	Features FeatureFlags `json:"features"`
 }
@@ -57,26 +57,26 @@ type ProviderConfig struct {
 
 // FeatureFlags controls experimental or optional features
 type FeatureFlags struct {
-	AgentMode        bool `json:"agentMode"`
-	PlanFirst        bool `json:"planFirst"`
-	InteractiveMode  bool `json:"interactiveMode"`
-	VerboseLogging   bool `json:"verboseLogging"`
-	DebugMode        bool `json:"debugMode"`
+	AgentMode       bool `json:"agentMode"`
+	PlanFirst       bool `json:"planFirst"`
+	InteractiveMode bool `json:"interactiveMode"`
+	VerboseLogging  bool `json:"verboseLogging"`
+	DebugMode       bool `json:"debugMode"`
 }
 
 // ConfigManager handles all configuration operations
 type ConfigManager struct {
-	mu             sync.RWMutex
+	mu              sync.RWMutex
 	runtimeSettings *RuntimeSettings
 	globalSettings  *GlobalSettings
-	userConfig     *TerminusAIConfig
-	configDir      string
-	settingsPath   string
+	userConfig      *TerminusAIConfig
+	configDir       string
+	settingsPath    string
 }
 
 var (
 	defaultConfigManager *ConfigManager
-	configOnce          sync.Once
+	configOnce           sync.Once
 )
 
 // GetConfigManager returns the singleton configuration manager
@@ -93,10 +93,10 @@ func NewConfigManager() *ConfigManager {
 	if err != nil {
 		panic(fmt.Sprintf("cannot determine home directory: %v", err))
 	}
-	
+
 	configDir := filepath.Join(home, common.ConfigDirName)
 	settingsPath := filepath.Join(configDir, "settings.json")
-	
+
 	cm := &ConfigManager{
 		configDir:    configDir,
 		settingsPath: settingsPath,
@@ -106,10 +106,10 @@ func NewConfigManager() *ConfigManager {
 		},
 		globalSettings: getDefaultGlobalSettings(),
 	}
-	
+
 	// Load existing configuration
 	cm.loadSettings()
-	
+
 	return cm
 }
 
@@ -119,7 +119,7 @@ func getDefaultGlobalSettings() *GlobalSettings {
 		Version: common.AppVersion,
 		Defaults: RuntimeSettings{
 			Verbose:         false,
-			Debug:          false,
+			Debug:           false,
 			DefaultProvider: "openai",
 		},
 		Providers: map[string]ProviderConfig{
@@ -205,15 +205,15 @@ func (cm *ConfigManager) SetProviderOverride(provider string) {
 func (cm *ConfigManager) GetEffectiveProvider() string {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
+
 	if cm.runtimeSettings.ProviderOverride != "" {
 		return cm.runtimeSettings.ProviderOverride
 	}
-	
+
 	if cm.userConfig != nil && cm.userConfig.Provider != "" {
 		return cm.userConfig.Provider
 	}
-	
+
 	return cm.globalSettings.Defaults.DefaultProvider
 }
 
@@ -228,20 +228,20 @@ func (cm *ConfigManager) SetModelOverride(model string) {
 func (cm *ConfigManager) GetEffectiveModel() string {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
+
 	if cm.runtimeSettings.ModelOverride != "" {
 		return cm.runtimeSettings.ModelOverride
 	}
-	
+
 	if cm.userConfig != nil && cm.userConfig.Model != "" {
 		return cm.userConfig.Model
 	}
-	
+
 	provider := cm.GetEffectiveProvider()
 	if providerConfig, exists := cm.globalSettings.Providers[provider]; exists {
 		return providerConfig.DefaultModel
 	}
-	
+
 	return ""
 }
 
@@ -251,12 +251,27 @@ func (cm *ConfigManager) GetEffectiveModel() string {
 func (cm *ConfigManager) GetProviderConfig(provider string) (ProviderConfig, bool) {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
-	config, exists := cm.globalSettings.Providers[provider]
-	
+
+	// Handle copilot as an alias for github with special settings
+	configKey := provider
+	if provider == "copilot" || provider == "copilot-api" {
+		configKey = "github"
+	}
+
+	config, exists := cm.globalSettings.Providers[configKey]
+
+	// Special handling for copilot mode
+	if provider == "copilot" || provider == "copilot-api" {
+		// For Copilot, we want to use a different base URL and model
+		config.BaseURL = "https://copilot-proxy.githubusercontent.com"
+		if config.DefaultModel == "" {
+			config.DefaultModel = "copilot-codex"
+		}
+	}
+
 	// Merge with user config if available
 	if cm.userConfig != nil {
-		switch provider {
+		switch configKey {
 		case "openai":
 			if cm.userConfig.OpenAIAPIKey != "" {
 				config.APIKey = cm.userConfig.OpenAIAPIKey
@@ -269,12 +284,12 @@ func (cm *ConfigManager) GetProviderConfig(provider string) (ProviderConfig, boo
 			if cm.userConfig.GitHubToken != "" {
 				config.APIKey = cm.userConfig.GitHubToken
 			}
-			if cm.userConfig.GitHubModelsBaseURL != "" {
+			if cm.userConfig.GitHubModelsBaseURL != "" && provider != "copilot" && provider != "copilot-api" {
 				config.BaseURL = cm.userConfig.GitHubModelsBaseURL
 			}
 		}
 	}
-	
+
 	return config, exists
 }
 
@@ -282,7 +297,7 @@ func (cm *ConfigManager) GetProviderConfig(provider string) (ProviderConfig, boo
 func (cm *ConfigManager) GetAvailableProviders() []string {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
+
 	var providers []string
 	for name, config := range cm.globalSettings.Providers {
 		if config.Enabled {
@@ -298,7 +313,7 @@ func (cm *ConfigManager) GetAvailableProviders() []string {
 func (cm *ConfigManager) IsFeatureEnabled(feature string) bool {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
+
 	switch feature {
 	case "agent":
 		return cm.globalSettings.Features.AgentMode
@@ -321,12 +336,12 @@ func (cm *ConfigManager) IsFeatureEnabled(feature string) bool {
 func (cm *ConfigManager) LoadUserConfig() error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	userConfig, err := LoadConfig()
 	if err != nil {
 		return err
 	}
-	
+
 	cm.userConfig = userConfig
 	return nil
 }
@@ -336,11 +351,11 @@ func (cm *ConfigManager) SaveUserConfig() error {
 	cm.mu.RLock()
 	userConfig := cm.userConfig
 	cm.mu.RUnlock()
-	
+
 	if userConfig == nil {
 		return fmt.Errorf("no user config to save")
 	}
-	
+
 	return SaveConfig(userConfig)
 }
 
@@ -348,11 +363,11 @@ func (cm *ConfigManager) SaveUserConfig() error {
 func (cm *ConfigManager) GetUserConfig() *TerminusAIConfig {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
+
 	if cm.userConfig == nil {
 		return &TerminusAIConfig{}
 	}
-	
+
 	// Return a copy to prevent external modification
 	config := *cm.userConfig
 	return &config
@@ -371,17 +386,17 @@ func (cm *ConfigManager) loadSettings() {
 		// Settings file doesn't exist, use defaults
 		return
 	}
-	
+
 	data, err := os.ReadFile(cm.settingsPath)
 	if err != nil {
 		return // Use defaults on error
 	}
-	
+
 	var settings GlobalSettings
 	if err := json.Unmarshal(data, &settings); err != nil {
 		return // Use defaults on error
 	}
-	
+
 	cm.mu.Lock()
 	cm.globalSettings = &settings
 	cm.mu.Unlock()
@@ -392,16 +407,16 @@ func (cm *ConfigManager) SaveSettings() error {
 	cm.mu.RLock()
 	settings := *cm.globalSettings
 	cm.mu.RUnlock()
-	
+
 	if err := os.MkdirAll(cm.configDir, 0755); err != nil {
 		return err
 	}
-	
+
 	data, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
 		return err
 	}
-	
+
 	return os.WriteFile(cm.settingsPath, data, 0644)
 }
 
@@ -409,7 +424,7 @@ func (cm *ConfigManager) SaveSettings() error {
 func (cm *ConfigManager) Reset() {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	cm.runtimeSettings = &RuntimeSettings{
 		Verbose: false,
 		Debug:   false,

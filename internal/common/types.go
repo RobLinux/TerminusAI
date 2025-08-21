@@ -19,7 +19,7 @@ const (
 	ConfigDirName           = ".terminusai"
 	ConfigFileName          = "config.json"
 	PolicyFileName          = "policy.json"
-	HardcodedGitHubClientID = "Ov23li7S3AOiOVyDxiV4"
+	HardcodedGitHubClientID = "Iv1.b507a08c87ecfe98"
 	GitHubOAuthDeviceScopes = "read:user"
 )
 
