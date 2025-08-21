@@ -27,8 +27,9 @@ type Rule struct {
 }
 
 type Store struct {
-	rules []Rule
-	file  string
+	rules       []Rule
+	file        string
+	alwaysAllow bool // Global flag to bypass all approval prompts
 }
 
 func Load() (*Store, error) {
@@ -43,7 +44,7 @@ func Load() (*Store, error) {
 	}
 
 	file := filepath.Join(dir, "policy.json")
-	
+
 	var rules []Rule
 	data, err := os.ReadFile(file)
 	if err != nil {
@@ -91,7 +92,22 @@ func (s *Store) Add(rule Rule) {
 	}
 }
 
+// SetAlwaysAllow enables or disables global always-allow mode
+func (s *Store) SetAlwaysAllow(enabled bool) {
+	s.alwaysAllow = enabled
+}
+
+// IsAlwaysAllow returns whether global always-allow mode is enabled
+func (s *Store) IsAlwaysAllow() bool {
+	return s.alwaysAllow
+}
+
 func (s *Store) Approve(command, description string) (Decision, error) {
+	// Check global always-allow mode first
+	if s.alwaysAllow {
+		return DecisionAlways, nil
+	}
+
 	// Check persisted rules
 	for _, rule := range s.rules {
 		pattern := "^" + strings.ReplaceAll(regexp.QuoteMeta(rule.Pattern), "\\*", ".*") + "$"
@@ -147,24 +163,24 @@ func (s *Store) displayCommandInfo(command, description string) {
 	cyan := color.New(color.FgCyan)
 	white := color.New(color.FgWhite, color.Bold)
 	muted := color.New(color.FgHiBlack)
-	
+
 	// Show header
 	fmt.Println()
 	yellow.Println("⚠ Command Approval Required")
 	muted.Println(strings.Repeat("─", 50))
-	
+
 	// Show purpose/description
 	if description != "" && description != "Run command" {
 		cyan.Printf("Purpose: %s\n", description)
 	}
-	
+
 	// Show the actual command
 	white.Printf("Command: %s\n", command)
-	
+
 	// Show working directory context
 	if wd, err := os.Getwd(); err == nil {
 		muted.Printf("Working directory: %s\n", wd)
 	}
-	
+
 	fmt.Println()
 }

@@ -34,8 +34,7 @@ ehthumbs.db
 Thumbs.db
 
 # Build artifacts
-terminusai
-terminusai-*
+terminusai*.exe
 dist/
 build/
 

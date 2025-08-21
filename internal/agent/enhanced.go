@@ -92,28 +92,28 @@ func (ea *EnhancedAgent) RunTask(task string) error {
 		// Get LLM response with retry mechanism
 		var raw string
 		var err error
-		
+
 		for retryCount := 0; retryCount <= maxAPIRetries; retryCount++ {
 			raw, err = ea.provider.Chat(transcript, nil)
 			if err == nil {
 				break // Success, exit retry loop
 			}
-			
+
 			if !isRetryableError(err) {
 				// Non-retryable error, exit immediately
 				break
 			}
-			
+
 			if retryCount < maxAPIRetries {
 				// Show discrete retry message only if we're going to retry
 				if ea.verbose {
-					ui.Warning.Printf("  ⎿  API temporarily unavailable, retrying in %v... (%d/%d)\n", 
+					ui.Warning.Printf("  ⎿  API temporarily unavailable, retrying in %v... (%d/%d)\n",
 						retryDelay*time.Duration(retryCount+1), retryCount+1, maxAPIRetries)
 				}
 				time.Sleep(retryDelay * time.Duration(retryCount+1)) // Exponential backoff
 			}
 		}
-		
+
 		if err != nil {
 			if isRetryableError(err) {
 				ui.Error.Printf("● API service temporarily unavailable after %d retries\n", maxAPIRetries)
