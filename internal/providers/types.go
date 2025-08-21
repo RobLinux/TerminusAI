@@ -6,7 +6,9 @@ type ChatMessage struct {
 }
 
 type ChatOptions struct {
-	Model string `json:"model,omitempty"`
+	Model       string  `json:"model,omitempty"`
+	Temperature float64 `json:"temperature,omitempty"`
+	MaxTokens   int     `json:"max_tokens,omitempty"`
 }
 
 type CompletionOptions struct {

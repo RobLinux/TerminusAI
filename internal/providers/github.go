@@ -73,6 +73,69 @@ type CopilotCompletionResponse struct {
 	Choices []CopilotCompletionChoice `json:"choices"`
 }
 
+// Copilot Models API types
+type CopilotModelsResponse struct {
+	Data   []CopilotModel `json:"data"`
+	Object string         `json:"object"`
+}
+
+type CopilotModel struct {
+	ID           string                   `json:"id"`
+	Object       string                   `json:"object"`
+	DisplayName  string                   `json:"display_name"`
+	Capabilities CopilotModelCapabilities `json:"capabilities"`
+}
+
+type CopilotModelCapabilities struct {
+	Family   string               `json:"family"`
+	Limits   CopilotModelLimits   `json:"limits"`
+	Supports CopilotModelSupports `json:"supports"`
+	Object   string               `json:"object"`
+}
+
+type CopilotModelLimits struct {
+	MaxContextWindowTokens int `json:"max_context_window_tokens,omitempty"`
+	MaxOutputTokens        int `json:"max_output_tokens,omitempty"`
+	MaxPromptTokens        int `json:"max_prompt_tokens,omitempty"`
+	MaxInputs              int `json:"max_inputs,omitempty"`
+}
+
+type CopilotModelSupports struct {
+	ToolCalls         bool `json:"tool_calls,omitempty"`
+	ParallelToolCalls bool `json:"parallel_tool_calls,omitempty"`
+	Dimensions        bool `json:"dimensions,omitempty"`
+}
+
+// Copilot Chat Completions types
+type CopilotChatRequest struct {
+	Model       string        `json:"model"`
+	Messages    []ChatMessage `json:"messages"`
+	Temperature *float64      `json:"temperature,omitempty"`
+	MaxTokens   *int          `json:"max_tokens,omitempty"`
+	Stream      bool          `json:"stream,omitempty"`
+	TopP        *float64      `json:"top_p,omitempty"`
+}
+
+type CopilotChatResponse struct {
+	ID      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	Model   string `json:"model"`
+	Choices []struct {
+		Index   int `json:"index"`
+		Message struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"message"`
+		FinishReason string `json:"finish_reason"`
+	} `json:"choices"`
+	Usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
+}
+
 func NewGitHubProvider(modelOverride string) *GitHubProvider {
 	token := os.Getenv("GITHUB_TOKEN")
 	if token == "" {
@@ -117,6 +180,22 @@ func NewGitHubProvider(modelOverride string) *GitHubProvider {
 		baseURL:       baseURL,
 		copilotMode:   copilotMode,
 	}
+}
+
+// NewGitHubProviderWithCopilotMode creates a GitHub provider with Copilot mode enabled
+func NewGitHubProviderWithCopilotMode(modelOverride string) *GitHubProvider {
+	// Set default Copilot model if none specified or if it's just "copilot"
+	actualModel := modelOverride
+	if modelOverride == "" || modelOverride == "copilot" {
+		actualModel = "gpt-4o" // Default Copilot chat model
+	}
+
+	provider := NewGitHubProvider(actualModel)
+	provider.copilotMode = true
+	provider.name = "copilot" // Change name to reflect Copilot mode
+	provider.defaultModel = actualModel
+
+	return provider
 }
 
 func (p *GitHubProvider) Name() string {
@@ -216,29 +295,119 @@ func (p *GitHubProvider) Chat(messages []ChatMessage, opts *ChatOptions) (string
 	return result, nil
 }
 
-// chatViaCopilot handles chat via Copilot completion API
+// chatViaCopilot handles chat via Copilot chat completions API
 func (p *GitHubProvider) chatViaCopilot(messages []ChatMessage, opts *ChatOptions) (string, error) {
-	// Convert chat messages to a prompt
-	var prompt strings.Builder
-	for _, msg := range messages {
-		switch msg.Role {
-		case "system":
-			prompt.WriteString("System: " + msg.Content + "\n")
-		case "user":
-			prompt.WriteString("User: " + msg.Content + "\n")
-		case "assistant":
-			prompt.WriteString("Assistant: " + msg.Content + "\n")
+	if err := p.ensureCopilotToken(); err != nil {
+		return "", fmt.Errorf("failed to get Copilot token: %w", err)
+	}
+
+	// Determine model from config or options
+	model := "gpt-4o" // default Copilot model
+	modelSource := "default"
+	
+	if opts != nil && opts.Model != "" {
+		model = opts.Model
+		modelSource = "options"
+	} else if p.modelOverride != "" && p.modelOverride != "copilot" {
+		model = p.modelOverride
+		modelSource = "override"
+	} else if p.defaultModel != "" && p.defaultModel != "copilot-codex" && p.defaultModel != "copilot" {
+		model = p.defaultModel
+		modelSource = "provider-default"
+	}
+
+	// Print the model being used by GitHub Copilot with source
+	fmt.Printf("🤖 Using GitHub Copilot model: %s (source: %s)\n", model, modelSource)
+
+	// Determine the base URL based on account type
+	baseURL := "https://api.githubcopilot.com"
+
+	url := baseURL + "/chat/completions"
+
+	reqBody := CopilotChatRequest{
+		Model:    model,
+		Messages: messages,
+		Stream:   false, // Non-streaming for now
+	}
+
+	// Handle temperature from options or environment
+	if opts != nil && opts.Temperature > 0 {
+		temp := float64(opts.Temperature)
+		reqBody.Temperature = &temp
+	} else if tempStr := os.Getenv("TERMINUS_AI_TEMPERATURE"); tempStr != "" {
+		if temp, err := strconv.ParseFloat(tempStr, 64); err == nil {
+			reqBody.Temperature = &temp
 		}
 	}
-	prompt.WriteString("Assistant: ")
 
-	// Use completion API
-	completionOpts := &CompletionOptions{
-		Language:  "text",
-		MaxTokens: 1000,
+	// Handle max tokens
+	if opts != nil && opts.MaxTokens > 0 {
+		reqBody.MaxTokens = &opts.MaxTokens
 	}
 
-	return p.Complete(prompt.String(), completionOpts)
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers based on the TypeScript implementation
+	req.Header.Set("Authorization", "Bearer "+p.copilotToken)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "GitHubCopilotChat/0.26.7")
+	req.Header.Set("Editor-Version", "copilot-chat/0.26.7")
+	req.Header.Set("OpenAI-Organization", "github-copilot")
+	req.Header.Set("Copilot-Integration-Id", "vscode-chat")
+	req.Header.Set("X-Request-Id", fmt.Sprintf("req_%d", time.Now().UnixNano()))
+
+	// Determine if any message is from an agent ("assistant" or "tool") for X-Initiator header
+	isAgentCall := false
+	for _, msg := range messages {
+		if msg.Role == "assistant" || msg.Role == "tool" {
+			isAgentCall = true
+			break
+		}
+	}
+
+	if isAgentCall {
+		req.Header.Set("X-Initiator", "agent")
+	} else {
+		req.Header.Set("X-Initiator", "user")
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("copilot chat API error: %d %s", resp.StatusCode, string(body))
+	}
+
+	var chatResp CopilotChatResponse
+	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
+		return "", fmt.Errorf("failed to decode chat response: %w", err)
+	}
+
+	if len(chatResp.Choices) == 0 {
+		return "", fmt.Errorf("no choices in response")
+	}
+
+	return chatResp.Choices[0].Message.Content, nil
 }
 
 // Complete implements the CompletionProvider interface for Copilot mode
@@ -331,6 +500,60 @@ func (p *GitHubProvider) Complete(prompt string, opts *CompletionOptions) (strin
 	}
 
 	return result.String(), nil
+}
+
+// GetModels fetches available models from GitHub Copilot API
+func (p *GitHubProvider) GetModels() (*CopilotModelsResponse, error) {
+	if err := p.ensureCopilotToken(); err != nil {
+		return nil, fmt.Errorf("failed to get Copilot token: %w", err)
+	}
+
+	// Determine the base URL based on account type
+	// For individual accounts: https://api.githubcopilot.com
+	// For org accounts: https://api.{org}.githubcopilot.com
+	baseURL := "https://api.githubcopilot.com"
+
+	url := baseURL + "/models"
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers based on the TypeScript implementation
+	req.Header.Set("Authorization", "Bearer "+p.copilotToken)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "GitHubCopilotChat/0.26.7")
+	req.Header.Set("Editor-Version", "copilot-chat/0.26.7")
+	req.Header.Set("OpenAI-Organization", "github-copilot")
+	req.Header.Set("Copilot-Integration-Id", "vscode-chat")
+	req.Header.Set("X-Request-Id", fmt.Sprintf("req_%d", time.Now().UnixNano()))
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("Copilot models API error: %d %s", resp.StatusCode, string(body))
+	}
+
+	var modelsResp CopilotModelsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
+		return nil, fmt.Errorf("failed to decode models response: %w", err)
+	}
+
+	return &modelsResp, nil
 }
 
 func (p *GitHubProvider) handleError(statusCode int, body []byte) error {
@@ -451,7 +674,7 @@ func (p *GitHubProvider) getCopilotAccessToken() (string, error) {
 	tokenFile := filepath.Join(home, ".copilot_token")
 	data, err := os.ReadFile(tokenFile)
 	if err != nil {
-		return "", fmt.Errorf("no access token found. Set GITHUB_TOKEN environment variable or run 'terminusai copilot auth'")
+		return "", fmt.Errorf("no access token found. Set GITHUB_TOKEN environment variable or run 'terminusai setup' and choose GitHub authentication")
 	}
 
 	return strings.TrimSpace(string(data)), nil

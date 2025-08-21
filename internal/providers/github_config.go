@@ -22,12 +22,19 @@ type GitHubProviderConfig struct {
 
 // NewGitHubProviderWithConfig creates a new GitHub provider using configuration
 func NewGitHubProviderWithConfig(cm *config.ConfigManager, providerConfig config.ProviderConfig) *GitHubProviderConfig {
-	// Detect Copilot mode based on base URL or model
-	copilotMode := strings.Contains(providerConfig.BaseURL, "copilot") ||
+	// Detect Copilot mode based on provider name, base URL, or model
+	effectiveProvider := cm.GetEffectiveProvider()
+	copilotMode := effectiveProvider == "copilot" || 
+		strings.Contains(providerConfig.BaseURL, "copilot") ||
 		strings.Contains(providerConfig.DefaultModel, "copilot")
 
+	providerName := "github"
+	if copilotMode {
+		providerName = "copilot"
+	}
+
 	return &GitHubProviderConfig{
-		name:        "github",
+		name:        providerName,
 		config:      providerConfig,
 		cm:          cm,
 		copilotMode: copilotMode,
@@ -48,8 +55,14 @@ func (p *GitHubProviderConfig) DefaultModel() string {
 func (p *GitHubProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {
 	// If in Copilot mode, delegate to standalone provider for now
 	if p.copilotMode {
-		// Create a standalone GitHub provider in Copilot mode
-		standalone := NewGitHubProvider("copilot")
+		// Get the effective model from configuration
+		model := p.DefaultModel()
+		if opts != nil && opts.Model != "" {
+			model = opts.Model
+		}
+		
+		// Create a standalone GitHub provider in Copilot mode with the correct model
+		standalone := NewGitHubProviderWithCopilotMode(model)
 		return standalone.Chat(messages, opts)
 	}
 
