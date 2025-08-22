@@ -16,7 +16,7 @@ type TerminusAIConfig struct {
 // Constants for the application
 const (
 	AppName                 = "terminusai"
-	AppVersion              = "1.0.0"
+	AppVersion              = "1.0.1"
 	ConfigDirName           = ".terminusai"
 	ConfigFileName          = "config.json"
 	PolicyFileName          = "policy.json"

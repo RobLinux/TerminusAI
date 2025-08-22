@@ -11,7 +11,7 @@ func TestConstants(t *testing.T) {
 		expected string
 	}{
 		{"AppName", AppName, "terminusai"},
-		{"AppVersion", AppVersion, "1.0.0"},
+		{"AppVersion", AppVersion, "1.0.1"},
 		{"ConfigDirName", ConfigDirName, ".terminusai"},
 		{"ConfigFileName", ConfigFileName, "config.json"},
 		{"PolicyFileName", PolicyFileName, "policy.json"},
