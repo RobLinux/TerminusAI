@@ -5,7 +5,9 @@
       "Bash(rm:*)",
       "Bash(del \"C:\\Code\\terminusai\\cmd\\terminusai\\commands\\write.go\")",
       "Bash(powershell:*)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(go mod:*)",
+      "Bash(del:*)"
     ],
     "deny": [],
     "ask": [],

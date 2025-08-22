@@ -51,7 +51,26 @@ func (a *Agent) RunTask(task string) error {
 		var err error
 
 		for retryCount := 0; retryCount <= maxAPIRetries; retryCount++ {
+			// Log request in debug/verbose mode
+			if a.debug || a.verbose {
+				fmt.Printf("\n🔄 LLM Request (attempt %d/%d):\n", retryCount+1, maxAPIRetries+1)
+				for i, msg := range transcript {
+					fmt.Printf("  [%d] %s: %s\n", i, msg.Role, truncateString(msg.Content, 200))
+				}
+				fmt.Printf("\n")
+			}
+
 			raw, err = a.provider.Chat(transcript, nil)
+
+			// Log response in debug/verbose mode
+			if a.debug || a.verbose {
+				if err != nil {
+					fmt.Printf("🚨 LLM Error: %v\n\n", err)
+				} else {
+					fmt.Printf("✅ LLM Response: %s\n\n", truncateString(raw, 300))
+				}
+			}
+
 			if err == nil {
 				break
 			}
@@ -126,6 +145,176 @@ func (a *Agent) RunTask(task string) error {
 
 		case "write_file":
 			if err := a.handleWriteFile(action, &transcript); err != nil {
+				return err
+			}
+
+		case "ps":
+			if err := a.handlePs(action, &transcript); err != nil {
+				return err
+			}
+
+		case "kill":
+			if err := a.handleKill(action, &transcript); err != nil {
+				return err
+			}
+
+		case "http_request":
+			if err := a.handleHttpRequest(action, &transcript); err != nil {
+				return err
+			}
+
+		case "ping":
+			if err := a.handlePing(action, &transcript); err != nil {
+				return err
+			}
+
+		case "traceroute":
+			if err := a.handleTraceroute(action, &transcript); err != nil {
+				return err
+			}
+
+		case "get_system_info":
+			if err := a.handleGetSystemInfo(action, &transcript); err != nil {
+				return err
+			}
+
+		case "install_package":
+			if err := a.handleInstallPackage(action, &transcript); err != nil {
+				return err
+			}
+
+		case "git":
+			if err := a.handleGit(action, &transcript); err != nil {
+				return err
+			}
+
+		case "extract":
+			if err := a.handleExtract(action, &transcript); err != nil {
+				return err
+			}
+
+		case "compress":
+			if err := a.handleCompress(action, &transcript); err != nil {
+				return err
+			}
+
+		case "parse_json":
+			if err := a.handleParseJson(action, &transcript); err != nil {
+				return err
+			}
+
+		case "parse_yaml":
+			if err := a.handleParseYaml(action, &transcript); err != nil {
+				return err
+			}
+
+		case "ask_user":
+			if err := a.handleAskUser(action, &transcript); err != nil {
+				return err
+			}
+
+		case "log":
+			if err := a.handleLog(action, &transcript); err != nil {
+				return err
+			}
+
+		case "copy_path":
+			if err := a.handleCopyPath(action, &transcript); err != nil {
+				return err
+			}
+
+		case "move_path":
+			if err := a.handleMovePath(action, &transcript); err != nil {
+				return err
+			}
+
+		case "delete_path":
+			if err := a.handleDeletePath(action, &transcript); err != nil {
+				return err
+			}
+
+		case "stat_path":
+			if err := a.handleStatPath(action, &transcript); err != nil {
+				return err
+			}
+
+		case "make_dir":
+			if err := a.handleMakeDir(action, &transcript); err != nil {
+				return err
+			}
+
+		case "patch_file":
+			if err := a.handlePatchFile(action, &transcript); err != nil {
+				return err
+			}
+
+		case "download_file":
+			if err := a.handleDownloadFile(action, &transcript); err != nil {
+				return err
+			}
+
+		case "grep":
+			if err := a.handleGrep(action, &transcript); err != nil {
+				return err
+			}
+
+		case "diff":
+			if err := a.handleDiff(action, &transcript); err != nil {
+				return err
+			}
+
+		case "parse":
+			if err := a.handleParse(action, &transcript); err != nil {
+				return err
+			}
+
+		case "confirm":
+			if err := a.handleConfirm(action, &transcript); err != nil {
+				return err
+			}
+
+		case "report":
+			if err := a.handleReport(action, &transcript); err != nil {
+				return err
+			}
+
+		case "uuid":
+			if err := a.handleUuid(action, &transcript); err != nil {
+				return err
+			}
+
+		case "time_now":
+			if err := a.handleTimeNow(action, &transcript); err != nil {
+				return err
+			}
+
+		case "hash_file":
+			if err := a.handleHashFile(action, &transcript); err != nil {
+				return err
+			}
+
+		case "checksum_verify":
+			if err := a.handleChecksumVerify(action, &transcript); err != nil {
+				return err
+			}
+
+		case "hexdump":
+			if err := a.handleHexdump(action, &transcript); err != nil {
+				return err
+			}
+
+		case "env_get":
+			if err := a.handleEnvGet(action, &transcript); err != nil {
+				return err
+			}
+
+		case "env_set":
+			if err := a.handleEnvSet(action, &transcript); err != nil {
+				return err
+			}
+
+		case "whoami":
+			if err := a.handleWhoami(action, &transcript); err != nil {
 				return err
 			}
 

@@ -26,6 +26,66 @@ type AgentAction struct {
 	// Write file fields
 	Content string `json:"content,omitempty"`
 	Append  *bool  `json:"append,omitempty"`
+	// Process management fields
+	ProcessID *int `json:"processId,omitempty"`
+	// Network fields
+	Method  string            `json:"method,omitempty"`
+	URL     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Body    string            `json:"body,omitempty"`
+	Host    string            `json:"host,omitempty"`
+	// Package management fields
+	Name    string `json:"name,omitempty"`
+	Manager string `json:"manager,omitempty"`
+	// Archive fields
+	ArchivePath string   `json:"archivePath,omitempty"`
+	Files       []string `json:"files,omitempty"`
+	// Interactive fields
+	Question string `json:"question,omitempty"`
+	// Logging fields
+	Level   string `json:"level,omitempty"`
+	Message string `json:"message,omitempty"`
+	// File system operation fields
+	Src         string `json:"src,omitempty"`
+	Dest        string `json:"dest,omitempty"`
+	Overwrite   *bool  `json:"overwrite,omitempty"`
+	Recursive   *bool  `json:"recursive,omitempty"`
+	Parents     *bool  `json:"parents,omitempty"`
+	// Patch fields
+	Patch  string `json:"patch,omitempty"`
+	Format string `json:"format,omitempty"`
+	// Diff fields
+	APath   string `json:"aPath,omitempty"`
+	BPath   string `json:"bPath,omitempty"`
+	Context *int   `json:"context,omitempty"`
+	// Parse fields
+	ParseType string `json:"parseType,omitempty"`
+	// Enhanced user interaction fields
+	Rationale   string      `json:"rationale,omitempty"`
+	ActionName  string      `json:"action,omitempty"`
+	Details     interface{} `json:"details,omitempty"`
+	// Report fields
+	Attachments []struct {
+		Name string `json:"name"`
+		Path string `json:"path"`
+	} `json:"attachments,omitempty"`
+	// Utility fields
+	Version   *int   `json:"v,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	TZ        string `json:"tz,omitempty"`
+	Algo      string `json:"algo,omitempty"`
+	Checksum  string `json:"checksum,omitempty"`
+	Offset    *int   `json:"offset,omitempty"`
+	// Environment fields
+	Key     string `json:"key,omitempty"`
+	Value   string `json:"value,omitempty"`
+	Persist *bool  `json:"persist,omitempty"`
+	// Process fields
+	Filter string `json:"filter,omitempty"`
+	PID    *int   `json:"pid,omitempty"`
+	Signal string `json:"signal,omitempty"`
+	// Enhanced search/diff fields
+	Regex *bool `json:"regex,omitempty"`
 }
 
 // SearchResult represents a search match result
@@ -214,6 +274,231 @@ func validateAction(action *AgentAction) error {
 		if action.Result == "" {
 			action.Result = ""
 		}
+	case "ps":
+		// No validation needed for process list
+	case "kill":
+		if action.ProcessID == nil {
+			return fmt.Errorf("processId is required for kill")
+		}
+	case "http_request":
+		if action.URL == "" {
+			return fmt.Errorf("url is required for http_request")
+		}
+		if action.Method == "" {
+			action.Method = "GET"
+		}
+	case "ping":
+		if action.Host == "" {
+			return fmt.Errorf("host is required for ping")
+		}
+	case "traceroute":
+		if action.Host == "" {
+			return fmt.Errorf("host is required for traceroute")
+		}
+	case "get_system_info":
+		// No validation needed for system info
+	case "install_package":
+		if action.Name == "" {
+			return fmt.Errorf("name is required for install_package")
+		}
+		if action.Manager == "" {
+			return fmt.Errorf("manager is required for install_package")
+		}
+	case "git":
+		if action.Command == "" {
+			return fmt.Errorf("command is required for git")
+		}
+	case "extract":
+		if action.ArchivePath == "" {
+			return fmt.Errorf("archivePath is required for extract")
+		}
+		if action.Dest == "" {
+			return fmt.Errorf("dest is required for extract")
+		}
+	case "compress":
+		if len(action.Files) == 0 {
+			return fmt.Errorf("files is required for compress")
+		}
+		if action.Dest == "" {
+			return fmt.Errorf("dest is required for compress")
+		}
+	case "parse_json":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for parse_json")
+		}
+	case "parse_yaml":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for parse_yaml")
+		}
+	case "ask_user":
+		if action.Question == "" {
+			return fmt.Errorf("question is required for ask_user")
+		}
+	case "log":
+		if action.Message == "" {
+			return fmt.Errorf("message is required for log")
+		}
+		if action.Level == "" {
+			action.Level = "info"
+		}
+	case "copy_path":
+		if action.Src == "" {
+			return fmt.Errorf("src is required for copy_path")
+		}
+		if action.Dest == "" {
+			return fmt.Errorf("dest is required for copy_path")
+		}
+		if action.Overwrite == nil {
+			overwrite := false
+			action.Overwrite = &overwrite
+		}
+	case "move_path":
+		if action.Src == "" {
+			return fmt.Errorf("src is required for move_path")
+		}
+		if action.Dest == "" {
+			return fmt.Errorf("dest is required for move_path")
+		}
+		if action.Overwrite == nil {
+			overwrite := false
+			action.Overwrite = &overwrite
+		}
+	case "delete_path":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for delete_path")
+		}
+		if action.Recursive == nil {
+			recursive := false
+			action.Recursive = &recursive
+		}
+	case "stat_path":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for stat_path")
+		}
+	case "make_dir":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for make_dir")
+		}
+		if action.Parents == nil {
+			parents := false
+			action.Parents = &parents
+		}
+	case "patch_file":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for patch_file")
+		}
+		if action.Patch == "" {
+			return fmt.Errorf("patch is required for patch_file")
+		}
+		if action.Format == "" {
+			action.Format = "unified"
+		}
+	case "download_file":
+		if action.URL == "" {
+			return fmt.Errorf("url is required for download_file")
+		}
+		if action.Dest == "" {
+			return fmt.Errorf("dest is required for download_file")
+		}
+	case "grep":
+		if action.Pattern == "" {
+			return fmt.Errorf("pattern is required for grep")
+		}
+		if action.Path == "" {
+			action.Path = "."
+		}
+		if action.Regex == nil {
+			regex := false
+			action.Regex = &regex
+		}
+		if action.CaseSensitive == nil {
+			caseSensitive := false
+			action.CaseSensitive = &caseSensitive
+		}
+		if action.MaxResults == nil {
+			maxResults := 50
+			action.MaxResults = &maxResults
+		}
+	case "diff":
+		if action.APath == "" {
+			return fmt.Errorf("aPath is required for diff")
+		}
+		if action.BPath == "" {
+			return fmt.Errorf("bPath is required for diff")
+		}
+		if action.Context == nil {
+			context := 3
+			action.Context = &context
+		}
+		if action.Format == "" {
+			action.Format = "unified"
+		}
+	case "parse":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for parse")
+		}
+		if action.ParseType == "" {
+			return fmt.Errorf("parseType is required for parse")
+		}
+	case "confirm":
+		if action.ActionName == "" {
+			return fmt.Errorf("action is required for confirm")
+		}
+	case "report":
+		if action.Result == "" {
+			return fmt.Errorf("result is required for report")
+		}
+	case "uuid":
+		if action.Version == nil {
+			version := 4
+			action.Version = &version
+		}
+	case "time_now":
+		// No validation needed
+	case "hash_file":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for hash_file")
+		}
+		if action.Algo == "" {
+			action.Algo = "sha256"
+		}
+	case "checksum_verify":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for checksum_verify")
+		}
+		if action.Checksum == "" {
+			return fmt.Errorf("checksum is required for checksum_verify")
+		}
+		if action.Algo == "" {
+			action.Algo = "sha256"
+		}
+	case "hexdump":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for hexdump")
+		}
+		if action.MaxBytes == nil {
+			maxBytes := 1024
+			action.MaxBytes = &maxBytes
+		}
+		if action.Offset == nil {
+			offset := 0
+			action.Offset = &offset
+		}
+	case "env_get":
+		// key is optional for env_get
+	case "env_set":
+		if action.Key == "" {
+			return fmt.Errorf("key is required for env_set")
+		}
+		if action.Value == "" {
+			return fmt.Errorf("value is required for env_set")
+		}
+		if action.Persist == nil {
+			persist := false
+			action.Persist = &persist
+		}
+	case "whoami":
+		// No validation needed
 	default:
 		return fmt.Errorf("unknown action type: %s", action.Type)
 	}
