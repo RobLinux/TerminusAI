@@ -5,6 +5,7 @@ type TerminusAIConfig struct {
 	Provider            string `json:"provider,omitempty"`
 	Model               string `json:"model,omitempty"`
 	AlwaysAllow         bool   `json:"alwaysAllow,omitempty"`
+	MaxTokensPerRequest int    `json:"maxTokensPerRequest,omitempty"` // 0 = use model's max context
 	OpenAIAPIKey        string `json:"openaiApiKey,omitempty"`
 	AnthropicAPIKey     string `json:"anthropicApiKey,omitempty"`
 	GitHubToken         string `json:"githubToken,omitempty"`

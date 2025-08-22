@@ -55,6 +55,12 @@ func configShow(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Always Allow:  %t\n", cfg.AlwaysAllow)
 
+	if cfg.MaxTokensPerRequest > 0 {
+		fmt.Printf("Max Tokens:    %d\n", cfg.MaxTokensPerRequest)
+	} else {
+		fmt.Printf("Max Tokens:    (use model limit)\n")
+	}
+
 	// Show API key status (but not the actual keys)
 	if cfg.OpenAIAPIKey != "" {
 		fmt.Printf("OpenAI API:    configured\n")
@@ -146,6 +152,15 @@ func configSet(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("invalid boolean value for always-allow: %s (must be true or false)", value)
 		}
 		cfg.AlwaysAllow = boolValue
+	case "max-tokens", "max-tokens-per-request":
+		intValue, err := strconv.Atoi(value)
+		if err != nil {
+			return fmt.Errorf("invalid integer value for max-tokens: %s (must be a number)", value)
+		}
+		if intValue < 0 {
+			return fmt.Errorf("max-tokens must be 0 or positive (0 = use model limit)")
+		}
+		cfg.MaxTokensPerRequest = intValue
 	default:
 		return fmt.Errorf("unknown configuration key: %s", key)
 	}
@@ -178,6 +193,8 @@ func configGet(cmd *cobra.Command, args []string) error {
 		}
 	case "always-allow":
 		fmt.Println(cfg.AlwaysAllow)
+	case "max-tokens", "max-tokens-per-request":
+		fmt.Println(cfg.MaxTokensPerRequest)
 	default:
 		return fmt.Errorf("unknown configuration key: %s", key)
 	}
@@ -191,5 +208,6 @@ func configList(cmd *cobra.Command, args []string) error {
 	fmt.Println("  provider        Default LLM provider (openai|anthropic|copilot)")
 	fmt.Println("  model          Default model ID")
 	fmt.Println("  always-allow   Always allow commands without prompting (true|false)")
+	fmt.Println("  max-tokens     Maximum tokens per request (0 = use model limit)")
 	return nil
 }

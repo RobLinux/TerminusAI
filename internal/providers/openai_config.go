@@ -8,21 +8,24 @@ import (
 	"net/http"
 
 	"terminusai/internal/config"
+	"terminusai/internal/tokenizer"
 )
 
 // OpenAIProviderConfig is a config-based OpenAI provider
 type OpenAIProviderConfig struct {
-	name    string
-	config  config.ProviderConfig
-	cm      *config.ConfigManager
+	name      string
+	config    config.ProviderConfig
+	cm        *config.ConfigManager
+	tokenizer tokenizer.Tokenizer
 }
 
 // NewOpenAIProviderWithConfig creates a new OpenAI provider using configuration
 func NewOpenAIProviderWithConfig(cm *config.ConfigManager, providerConfig config.ProviderConfig) *OpenAIProviderConfig {
 	return &OpenAIProviderConfig{
-		name:   "openai",
-		config: providerConfig,
-		cm:     cm,
+		name:      "openai",
+		config:    providerConfig,
+		cm:        cm,
+		tokenizer: tokenizer.NewOpenAITokenizer(),
 	}
 }
 
@@ -35,6 +38,10 @@ func (p *OpenAIProviderConfig) DefaultModel() string {
 		return model
 	}
 	return p.config.DefaultModel
+}
+
+func (p *OpenAIProviderConfig) GetTokenizer() tokenizer.Tokenizer {
+	return p.tokenizer
 }
 
 func (p *OpenAIProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {

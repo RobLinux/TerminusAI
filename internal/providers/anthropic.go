@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"terminusai/internal/common"
+	"terminusai/internal/tokenizer"
 )
 
 type AnthropicProvider struct {
@@ -17,6 +18,7 @@ type AnthropicProvider struct {
 	modelOverride string
 	apiKey        string
 	config        *common.TerminusAIConfig
+	tokenizer     tokenizer.Tokenizer
 }
 
 type AnthropicMessage struct {
@@ -43,16 +45,16 @@ type AnthropicResponse struct {
 
 func NewAnthropicProvider(modelOverride string) *AnthropicProvider {
 	defaultModel := "claude-3-5-sonnet-latest"
-	
+
 	return &AnthropicProvider{
 		name:          "anthropic",
 		defaultModel:  defaultModel,
 		modelOverride: modelOverride,
 		apiKey:        "", // Legacy provider - should use config-based provider instead
 		config:        nil,
+		tokenizer:     tokenizer.NewAnthropicTokenizer(),
 	}
 }
-
 
 func (p *AnthropicProvider) Name() string {
 	return p.name
@@ -60,6 +62,10 @@ func (p *AnthropicProvider) Name() string {
 
 func (p *AnthropicProvider) DefaultModel() string {
 	return p.defaultModel
+}
+
+func (p *AnthropicProvider) GetTokenizer() tokenizer.Tokenizer {
+	return p.tokenizer
 }
 
 func (p *AnthropicProvider) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {
@@ -92,8 +98,8 @@ func (p *AnthropicProvider) Chat(messages []ChatMessage, opts *ChatOptions) (str
 
 	// Legacy provider uses default temperature handling from options only
 
-	verbose := false  // Legacy mode - no logging
-	debug := false    // Legacy mode - no logging
+	verbose := false // Legacy mode - no logging
+	debug := false   // Legacy mode - no logging
 
 	if verbose || debug {
 		logAnthropicRequest(reqBody, len(messages), debug)

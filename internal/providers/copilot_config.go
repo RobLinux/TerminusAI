@@ -11,13 +11,15 @@ import (
 
 	"terminusai/internal/common"
 	"terminusai/internal/config"
+	"terminusai/internal/tokenizer"
 )
 
 // CopilotProviderConfig is a config-based Copilot provider
 type CopilotProviderConfig struct {
-	name   string
-	config config.ProviderConfig
-	cm     *config.ConfigManager
+	name      string
+	config    config.ProviderConfig
+	cm        *config.ConfigManager
+	tokenizer tokenizer.Tokenizer
 }
 
 // NewCopilotProviderWithConfig creates a new Copilot provider using configuration
@@ -25,9 +27,10 @@ func NewCopilotProviderWithConfig(cm *config.ConfigManager, providerConfig confi
 	providerName := "copilot"
 
 	return &CopilotProviderConfig{
-		name:   providerName,
-		config: providerConfig,
-		cm:     cm,
+		name:      providerName,
+		config:    providerConfig,
+		cm:        cm,
+		tokenizer: tokenizer.NewCopilotTokenizer(),
 	}
 }
 
@@ -40,6 +43,10 @@ func (p *CopilotProviderConfig) DefaultModel() string {
 		return model
 	}
 	return p.config.DefaultModel
+}
+
+func (p *CopilotProviderConfig) GetTokenizer() tokenizer.Tokenizer {
+	return p.tokenizer
 }
 
 func (p *CopilotProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {

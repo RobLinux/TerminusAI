@@ -9,21 +9,24 @@ import (
 	"strings"
 
 	"terminusai/internal/config"
+	"terminusai/internal/tokenizer"
 )
 
 // AnthropicProviderConfig is a config-based Anthropic provider
 type AnthropicProviderConfig struct {
-	name   string
-	config config.ProviderConfig
-	cm     *config.ConfigManager
+	name      string
+	config    config.ProviderConfig
+	cm        *config.ConfigManager
+	tokenizer tokenizer.Tokenizer
 }
 
 // NewAnthropicProviderWithConfig creates a new Anthropic provider using configuration
 func NewAnthropicProviderWithConfig(cm *config.ConfigManager, providerConfig config.ProviderConfig) *AnthropicProviderConfig {
 	return &AnthropicProviderConfig{
-		name:   "anthropic",
-		config: providerConfig,
-		cm:     cm,
+		name:      "anthropic",
+		config:    providerConfig,
+		cm:        cm,
+		tokenizer: tokenizer.NewAnthropicTokenizer(),
 	}
 }
 
@@ -36,6 +39,10 @@ func (p *AnthropicProviderConfig) DefaultModel() string {
 		return model
 	}
 	return p.config.DefaultModel
+}
+
+func (p *AnthropicProviderConfig) GetTokenizer() tokenizer.Tokenizer {
+	return p.tokenizer
 }
 
 func (p *AnthropicProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {

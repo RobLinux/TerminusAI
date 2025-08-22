@@ -8,14 +8,16 @@ import (
 	"net/http"
 
 	"terminusai/internal/common"
+	"terminusai/internal/tokenizer"
 )
 
 type OpenAIProvider struct {
-	name         string
-	defaultModel string
+	name          string
+	defaultModel  string
 	modelOverride string
-	apiKey       string
-	config       *common.TerminusAIConfig
+	apiKey        string
+	config        *common.TerminusAIConfig
+	tokenizer     tokenizer.Tokenizer
 }
 
 type OpenAIRequest struct {
@@ -34,16 +36,16 @@ type OpenAIResponse struct {
 
 func NewOpenAIProvider(modelOverride string) *OpenAIProvider {
 	defaultModel := "gpt-4o-mini"
-	
+
 	return &OpenAIProvider{
 		name:          "openai",
 		defaultModel:  defaultModel,
 		modelOverride: modelOverride,
 		apiKey:        "", // Legacy provider - should use config-based provider instead
 		config:        nil,
+		tokenizer:     tokenizer.NewOpenAITokenizer(),
 	}
 }
-
 
 func (p *OpenAIProvider) Name() string {
 	return p.name
@@ -51,6 +53,10 @@ func (p *OpenAIProvider) Name() string {
 
 func (p *OpenAIProvider) DefaultModel() string {
 	return p.defaultModel
+}
+
+func (p *OpenAIProvider) GetTokenizer() tokenizer.Tokenizer {
+	return p.tokenizer
 }
 
 func (p *OpenAIProvider) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {
@@ -68,8 +74,8 @@ func (p *OpenAIProvider) Chat(messages []ChatMessage, opts *ChatOptions) (string
 
 	// Legacy provider uses default temperature handling from options only
 
-	verbose := false  // Legacy mode - no logging
-	debug := false    // Legacy mode - no logging
+	verbose := false // Legacy mode - no logging
+	debug := false   // Legacy mode - no logging
 
 	if verbose || debug {
 		logRequest(reqBody, debug)
@@ -122,8 +128,6 @@ func (p *OpenAIProvider) Chat(messages []ChatMessage, opts *ChatOptions) (string
 	return result, nil
 }
 
-
-
 func logRequest(reqBody OpenAIRequest, debug bool) {
 	var msgPreview []ChatMessage
 	if debug {
@@ -136,13 +140,13 @@ func logRequest(reqBody OpenAIRequest, debug bool) {
 			})
 		}
 	}
-	
+
 	preview := OpenAIRequest{
 		Model:       reqBody.Model,
 		Messages:    msgPreview,
 		Temperature: reqBody.Temperature,
 	}
-	
+
 	previewJSON, _ := json.Marshal(preview)
 	fmt.Printf("[http] OpenAI POST /chat/completions model=%s body=%s\n", reqBody.Model, string(previewJSON))
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"terminusai/internal/common"
+	"terminusai/internal/tokenizer"
 )
 
 type CopilotProvider struct {
@@ -23,6 +24,7 @@ type CopilotProvider struct {
 	token         string
 	copilotToken  string
 	config        *common.TerminusAIConfig
+	tokenizer     tokenizer.Tokenizer
 }
 
 type CopilotRequest struct {
@@ -153,9 +155,9 @@ func NewCopilotProvider(modelOverride string) *CopilotProvider {
 		modelOverride: modelOverride,
 		token:         token,
 		config:        nil,
+		tokenizer:     tokenizer.NewCopilotTokenizer(),
 	}
 }
-
 
 func (p *CopilotProvider) Name() string {
 	return p.name
@@ -163,6 +165,10 @@ func (p *CopilotProvider) Name() string {
 
 func (p *CopilotProvider) DefaultModel() string {
 	return p.defaultModel
+}
+
+func (p *CopilotProvider) GetTokenizer() tokenizer.Tokenizer {
+	return p.tokenizer
 }
 
 func (p *CopilotProvider) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {
