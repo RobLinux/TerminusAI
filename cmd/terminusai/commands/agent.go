@@ -46,7 +46,6 @@ Example:
 	cmd.Flags().Bool("setup", false, "Run setup wizard before executing")
 	cmd.Flags().Bool("verbose", false, "Enable verbose logging")
 	cmd.Flags().Bool("debug", false, "Enable maximum debug logging")
-	cmd.Flags().Bool("minimal", false, "Use minimal output (disable enhanced UI)")
 	cmd.Flags().Bool("plan-first", false, "Generate a plan first, then execute steps with approvals")
 	cmd.Flags().Bool("dry-run", false, "With --plan-first, show plan only and exit")
 	cmd.Flags().BoolP("always-allow", "y", false, "Automatically approve all commands without prompting")
@@ -63,17 +62,13 @@ func agentTask(cmd *cobra.Command, args []string) error {
 	setup, _ := cmd.Flags().GetBool("setup")
 	verbose, _ := cmd.Flags().GetBool("verbose")
 	debug, _ := cmd.Flags().GetBool("debug")
-	minimal, _ := cmd.Flags().GetBool("minimal")
 	planFirst, _ := cmd.Flags().GetBool("plan-first")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	alwaysAllow, _ := cmd.Flags().GetBool("always-allow")
 
-	// Initialize enhanced UI
+	// Initialize UI
 	display := ui.NewDisplay(verbose, debug)
-	if !minimal {
-		// More minimal header
-		display.PrintInfo("Task: %s", task)
-	}
+	display.PrintInfo("Task: %s", task)
 
 	// Get configuration manager
 	cm := config.GetConfigManager()
@@ -134,11 +129,7 @@ func agentTask(cmd *cobra.Command, args []string) error {
 
 	// Optional plan-first flow
 	if planFirst {
-		if minimal {
-			cyan.Printf("Task: %s\n", task)
-		} else {
-			display.PrintSection("Planning Phase")
-		}
+		display.PrintSection("Planning Phase")
 
 		plan, err := planner.PlanCommands(task, llmProvider)
 		if err != nil {
@@ -146,36 +137,25 @@ func agentTask(cmd *cobra.Command, args []string) error {
 		}
 
 		if dryRun {
-			if minimal {
-				yellow.Println("\nPlan (dry-run):")
-				for _, step := range plan.Steps {
-					fmt.Printf("- %s: %s\n", step.Shell, step.Command)
-				}
-			} else {
-				display.PrintSection("Execution Plan (dry-run)")
-				for i, step := range plan.Steps {
-					display.PrintTask(fmt.Sprintf("Step %d: %s", i+1, step.Description))
-					display.PrintCommand(step.Shell, step.Command)
-				}
+			display.PrintSection("Execution Plan (dry-run)")
+			for i, step := range plan.Steps {
+				display.PrintTask(fmt.Sprintf("Step %d: %s", i+1, step.Description))
+				display.PrintCommand(step.Shell, step.Command)
 			}
 			return policyStore.Save()
 		}
 
-		if minimal {
-			if err := runner.RunPlannedCommands(plan, policyStore, cm.IsVerbose()); err != nil {
-				return fmt.Errorf("failed to run commands: %w", err)
-			}
-		} else {
-			enhancedRunner := runner.NewEnhancedRunner(policyStore, verbose, debug)
-			if err := enhancedRunner.RunPlannedCommandsEnhanced(plan); err != nil {
-				return fmt.Errorf("failed to run commands: %w", err)
-			}
+		runnerInstance := runner.NewRunner(policyStore, verbose, debug)
+		if err := runnerInstance.RunPlannedCommands(plan); err != nil {
+			return fmt.Errorf("failed to run commands: %w", err)
 		}
+
 		return policyStore.Save()
 	}
 
-	// Always use enhanced functionality with working directory support
-	if err := agent.RunAgentTaskWithWorkingDir(task, llmProvider, policyStore, workingDir, cm.IsVerbose()); err != nil {
+	// Use Agent with working directory support
+	agentInstance := agent.NewAgent(llmProvider, policyStore, workingDir, verbose, debug)
+	if err := agentInstance.RunTask(task); err != nil {
 		return fmt.Errorf("agent task failed: %w", err)
 	}
 

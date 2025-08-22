@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"strconv"
 
 	"terminusai/internal/common"
 )
@@ -17,6 +15,7 @@ type OpenAIProvider struct {
 	defaultModel string
 	modelOverride string
 	apiKey       string
+	config       *common.TerminusAIConfig
 }
 
 type OpenAIRequest struct {
@@ -34,18 +33,17 @@ type OpenAIResponse struct {
 }
 
 func NewOpenAIProvider(modelOverride string) *OpenAIProvider {
-	defaultModel := os.Getenv("common.EnvDefaultModel")
-	if defaultModel == "" {
-		defaultModel = "gpt-4o-mini"
-	}
+	defaultModel := "gpt-4o-mini"
 	
 	return &OpenAIProvider{
 		name:          "openai",
 		defaultModel:  defaultModel,
 		modelOverride: modelOverride,
-		apiKey:        os.Getenv("OPENAI_API_KEY"),
+		apiKey:        "", // Legacy provider - should use config-based provider instead
+		config:        nil,
 	}
 }
+
 
 func (p *OpenAIProvider) Name() string {
 	return p.name
@@ -68,12 +66,7 @@ func (p *OpenAIProvider) Chat(messages []ChatMessage, opts *ChatOptions) (string
 		Messages: messages,
 	}
 
-	// Handle temperature from environment
-	if tempStr := os.Getenv("common.EnvTemperature"); tempStr != "" {
-		if temp, err := strconv.ParseFloat(tempStr, 64); err == nil {
-			reqBody.Temperature = &temp
-		}
-	}
+	// Legacy provider uses default temperature handling from options only
 
 	verbose := false  // Legacy mode - no logging
 	debug := false    // Legacy mode - no logging

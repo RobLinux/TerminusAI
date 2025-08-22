@@ -53,9 +53,9 @@ func runTask(cmd *cobra.Command, args []string) error {
 	debug, _ := cmd.Flags().GetBool("debug")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 
-	// Initialize enhanced UI
+	// Initialize UI
 	display := ui.NewDisplay(verbose, debug)
-	display.PrintHeader("TerminusAI Enhanced")
+	display.PrintHeader("TerminusAI")
 
 	// Get configuration manager
 	cm := config.GetConfigManager()
@@ -104,9 +104,9 @@ func runTask(cmd *cobra.Command, args []string) error {
 	// Display task
 	display.PrintInfo("Task: %s", task)
 
-	// Use enhanced planner with visual feedback
-	enhancedPlanner := planner.NewEnhancedPlanner(verbose, debug)
-	plan, err := enhancedPlanner.PlanCommandsWithUI(task, llmProvider)
+	// Use planner with visual feedback
+	plannerInstance := planner.NewPlanner(verbose, debug)
+	plan, err := plannerInstance.PlanCommandsWithUI(task, llmProvider)
 	if err != nil {
 		return fmt.Errorf("failed to plan commands: %w", err)
 	}
@@ -121,9 +121,9 @@ func runTask(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Use enhanced runner with cancellation and progress tracking
-	enhancedRunner := runner.NewEnhancedRunner(policyStore, verbose, debug)
-	if err := enhancedRunner.RunPlannedCommandsEnhanced(plan); err != nil {
+	// Use runner with cancellation and progress tracking
+	runnerInstance := runner.NewRunner(policyStore, verbose, debug)
+	if err := runnerInstance.RunPlannedCommands(plan); err != nil {
 		return fmt.Errorf("failed to run commands: %w", err)
 	}
 

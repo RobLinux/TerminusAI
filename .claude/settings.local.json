@@ -4,9 +4,13 @@
       "Bash(go build:*)",
       "Bash(rm:*)",
       "Bash(del \"C:\\Code\\terminusai\\cmd\\terminusai\\commands\\write.go\")",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(go test:*)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "C:\\c\\Code"
+    ]
   }
 }

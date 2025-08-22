@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"terminusai/internal/common"
 	"terminusai/internal/config"
 )
 
@@ -52,7 +53,13 @@ func (p *CopilotProviderConfig) Chat(messages []ChatMessage, opts *ChatOptions) 
 
 		// Create a standalone Copilot provider in Copilot mode with the correct model
 		standalone := NewCopilotProvider(model)
-		return standalone.Chat(messages, opts)
+		// Pass config for access to GitHub token
+		cfg := &common.TerminusAIConfig{
+			GitHubToken: p.config.APIKey,
+			Model:       model,
+		}
+		standalone.config = cfg
+		return standalone.ChatWithConfig(messages, opts, cfg)
 	}
 
 	// Standard Copilot Models chat

@@ -10,9 +10,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
+
+	"terminusai/internal/common"
 )
 
 type CopilotProvider struct {
@@ -21,6 +22,7 @@ type CopilotProvider struct {
 	modelOverride string
 	token         string
 	copilotToken  string
+	config        *common.TerminusAIConfig
 }
 
 type CopilotRequest struct {
@@ -136,10 +138,8 @@ type CopilotChatResponse struct {
 
 // NewCopilotProvider creates a Copilot provider
 func NewCopilotProvider(modelOverride string) *CopilotProvider {
-	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
-		token = os.Getenv("GH_TOKEN")
-	}
+	// Legacy provider - token will be obtained via getCopilotAccessToken when needed
+	token := ""
 
 	// Set default Copilot model if none specified or if it's just "copilot"
 	actualModel := modelOverride
@@ -152,8 +152,10 @@ func NewCopilotProvider(modelOverride string) *CopilotProvider {
 		defaultModel:  actualModel,
 		modelOverride: modelOverride,
 		token:         token,
+		config:        nil,
 	}
 }
+
 
 func (p *CopilotProvider) Name() string {
 	return p.name
@@ -165,11 +167,16 @@ func (p *CopilotProvider) DefaultModel() string {
 
 func (p *CopilotProvider) Chat(messages []ChatMessage, opts *ChatOptions) (string, error) {
 	// Always use Copilot mode
-	return p.chatViaCopilot(messages, opts)
+	return p.chatViaCopilot(messages, opts, nil)
+}
+
+// ChatWithConfig allows passing configuration for chat requests
+func (p *CopilotProvider) ChatWithConfig(messages []ChatMessage, opts *ChatOptions, cfg *common.TerminusAIConfig) (string, error) {
+	return p.chatViaCopilot(messages, opts, cfg)
 }
 
 // chatViaCopilot handles chat via Copilot chat completions API
-func (p *CopilotProvider) chatViaCopilot(messages []ChatMessage, opts *ChatOptions) (string, error) {
+func (p *CopilotProvider) chatViaCopilot(messages []ChatMessage, opts *ChatOptions, cfg *common.TerminusAIConfig) (string, error) {
 	if err := p.ensureCopilotToken(); err != nil {
 		return "", fmt.Errorf("failed to get Copilot token: %w", err)
 	}
@@ -196,15 +203,12 @@ func (p *CopilotProvider) chatViaCopilot(messages []ChatMessage, opts *ChatOptio
 		Stream:   false, // Non-streaming for now
 	}
 
-	// Handle temperature from options or environment
+	// Handle temperature from options or config
 	if opts != nil && opts.Temperature > 0 {
 		temp := float64(opts.Temperature)
 		reqBody.Temperature = &temp
-	} else if tempStr := os.Getenv("TERMINUS_AI_TEMPERATURE"); tempStr != "" {
-		if temp, err := strconv.ParseFloat(tempStr, 64); err == nil {
-			reqBody.Temperature = &temp
-		}
 	}
+	// Note: Config-based temperature should be handled by the config-based provider
 
 	// Handle max tokens
 	if opts != nil && opts.MaxTokens > 0 {
@@ -518,14 +522,11 @@ func (p *CopilotProvider) refreshCopilotToken() error {
 	return nil
 }
 
-// getCopilotAccessToken gets the Copilot access token from file or environment
+// getCopilotAccessToken gets the Copilot access token from config or file
 func (p *CopilotProvider) getCopilotAccessToken() (string, error) {
-	// Try environment variable first
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		return token, nil
-	}
-	if token := os.Getenv("GH_TOKEN"); token != "" {
-		return token, nil
+	// Try config first
+	if p.config != nil && p.config.GitHubToken != "" {
+		return p.config.GitHubToken, nil
 	}
 
 	// Try .copilot_token file
@@ -537,7 +538,7 @@ func (p *CopilotProvider) getCopilotAccessToken() (string, error) {
 	tokenFile := filepath.Join(home, ".copilot_token")
 	data, err := os.ReadFile(tokenFile)
 	if err != nil {
-		return "", fmt.Errorf("no access token found. Set GITHUB_TOKEN environment variable or run 'terminusai setup' and choose Copilot authentication")
+		return "", fmt.Errorf("no access token found. Run 'terminusai setup' and choose Copilot authentication")
 	}
 
 	return strings.TrimSpace(string(data)), nil

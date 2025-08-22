@@ -112,15 +112,15 @@ func (kh *KeyboardHandler) PromptYesNo(message string, defaultYes bool) bool {
 }
 
 // Enhanced display with keyboard shortcuts
-type InteractiveDisplayEnhanced struct {
+type ExtendedInteractiveDisplay struct {
 	*InteractiveDisplay
 	keyboard *KeyboardHandler
 	shortcuts map[string]func()
 }
 
-// NewInteractiveDisplayEnhanced creates an enhanced interactive display
-func NewInteractiveDisplayEnhanced(verbose, debug bool) *InteractiveDisplayEnhanced {
-	return &InteractiveDisplayEnhanced{
+// NewExtendedInteractiveDisplay creates an enhanced interactive display
+func NewExtendedInteractiveDisplay(verbose, debug bool) *ExtendedInteractiveDisplay {
+	return &ExtendedInteractiveDisplay{
 		InteractiveDisplay: NewInteractiveDisplay(verbose, debug),
 		keyboard:          NewKeyboardHandler(),
 		shortcuts:         make(map[string]func()),
@@ -128,7 +128,7 @@ func NewInteractiveDisplayEnhanced(verbose, debug bool) *InteractiveDisplayEnhan
 }
 
 // ShowActionWithShortcuts shows an action with keyboard shortcuts
-func (ide *InteractiveDisplayEnhanced) ShowActionWithShortcuts(title, summary string, expandable bool) *InteractiveAction {
+func (ide *ExtendedInteractiveDisplay) ShowActionWithShortcuts(title, summary string, expandable bool) *InteractiveAction {
 	action := ide.ShowAction(title, summary, expandable)
 	
 	if expandable {
@@ -152,7 +152,7 @@ func (ide *InteractiveDisplayEnhanced) ShowActionWithShortcuts(title, summary st
 }
 
 // WaitForExpansionInput waits for expansion input with keyboard shortcuts
-func (ide *InteractiveDisplayEnhanced) WaitForExpansionInput(action *InteractiveAction) bool {
+func (ide *ExtendedInteractiveDisplay) WaitForExpansionInput(action *InteractiveAction) bool {
 	if !action.Expandable {
 		return false
 	}
@@ -161,7 +161,7 @@ func (ide *InteractiveDisplayEnhanced) WaitForExpansionInput(action *Interactive
 }
 
 // ShowContextualHelp shows available keyboard shortcuts
-func (ide *InteractiveDisplayEnhanced) ShowContextualHelp() {
+func (ide *ExtendedInteractiveDisplay) ShowContextualHelp() {
 	Muted.Println("\nKeyboard shortcuts:")
 	Muted.Println("  Enter    - Expand details for current action")
 	Muted.Println("  Ctrl+C   - Cancel current operation")
@@ -229,7 +229,7 @@ func GetKeyPress() (rune, error) {
 }
 
 // SmartPrompt provides intelligent prompting based on context
-func (ide *InteractiveDisplayEnhanced) SmartPrompt(context string, options []string) string {
+func (ide *ExtendedInteractiveDisplay) SmartPrompt(context string, options []string) string {
 	if len(options) == 0 {
 		return ""
 	}
@@ -256,7 +256,7 @@ func (ide *InteractiveDisplayEnhanced) SmartPrompt(context string, options []str
 }
 
 // promptYesNoSmart provides smart yes/no prompting
-func (ide *InteractiveDisplayEnhanced) promptYesNoSmart(message string, defaultYes bool) string {
+func (ide *ExtendedInteractiveDisplay) promptYesNoSmart(message string, defaultYes bool) string {
 	if ide.keyboard.PromptYesNo(message, defaultYes) {
 		return "yes"
 	}
@@ -264,14 +264,14 @@ func (ide *InteractiveDisplayEnhanced) promptYesNoSmart(message string, defaultY
 }
 
 // SetupGlobalShortcuts sets up global keyboard shortcuts
-func (ide *InteractiveDisplayEnhanced) SetupGlobalShortcuts() {
+func (ide *ExtendedInteractiveDisplay) SetupGlobalShortcuts() {
 	ide.shortcuts["h"] = ide.ShowContextualHelp
 	ide.shortcuts["help"] = ide.ShowContextualHelp
 	ide.shortcuts["?"] = ide.ShowContextualHelp
 }
 
 // ProcessShortcut processes a keyboard shortcut
-func (ide *InteractiveDisplayEnhanced) ProcessShortcut(key string) bool {
+func (ide *ExtendedInteractiveDisplay) ProcessShortcut(key string) bool {
 	if handler, exists := ide.shortcuts[strings.ToLower(key)]; exists {
 		handler()
 		return true

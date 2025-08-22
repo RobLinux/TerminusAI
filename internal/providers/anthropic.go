@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
+
+	"terminusai/internal/common"
 )
 
 type AnthropicProvider struct {
@@ -16,6 +16,7 @@ type AnthropicProvider struct {
 	defaultModel  string
 	modelOverride string
 	apiKey        string
+	config        *common.TerminusAIConfig
 }
 
 type AnthropicMessage struct {
@@ -41,18 +42,17 @@ type AnthropicResponse struct {
 }
 
 func NewAnthropicProvider(modelOverride string) *AnthropicProvider {
-	defaultModel := os.Getenv("TERMINUS_AI_DEFAULT_MODEL")
-	if defaultModel == "" {
-		defaultModel = "claude-3-5-sonnet-latest"
-	}
+	defaultModel := "claude-3-5-sonnet-latest"
 	
 	return &AnthropicProvider{
 		name:          "anthropic",
 		defaultModel:  defaultModel,
 		modelOverride: modelOverride,
-		apiKey:        os.Getenv("ANTHROPIC_API_KEY"),
+		apiKey:        "", // Legacy provider - should use config-based provider instead
+		config:        nil,
 	}
 }
+
 
 func (p *AnthropicProvider) Name() string {
 	return p.name
@@ -90,12 +90,7 @@ func (p *AnthropicProvider) Chat(messages []ChatMessage, opts *ChatOptions) (str
 		MaxTokens: 1024,
 	}
 
-	// Handle temperature from environment
-	if tempStr := os.Getenv("TERMINUS_AI_TEMPERATURE"); tempStr != "" {
-		if temp, err := strconv.ParseFloat(tempStr, 64); err == nil {
-			reqBody.Temperature = &temp
-		}
-	}
+	// Legacy provider uses default temperature handling from options only
 
 	verbose := false  // Legacy mode - no logging
 	debug := false    // Legacy mode - no logging

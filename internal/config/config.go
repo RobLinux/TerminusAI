@@ -65,29 +65,6 @@ func SaveConfig(cfg *TerminusAIConfig) error {
 	return os.WriteFile(configPath(), data, 0644)
 }
 
-func applyEnvFromConfig(cfg *TerminusAIConfig) {
-	if cfg.OpenAIAPIKey != "" {
-		os.Setenv("OPENAI_API_KEY", cfg.OpenAIAPIKey)
-	}
-	if cfg.AnthropicAPIKey != "" {
-		os.Setenv("ANTHROPIC_API_KEY", cfg.AnthropicAPIKey)
-	}
-	if cfg.GitHubToken != "" {
-		os.Setenv("GITHUB_TOKEN", cfg.GitHubToken)
-	}
-	if cfg.GitHubModelsBaseURL != "" {
-		os.Setenv("GITHUB_MODELS_BASE_URL", cfg.GitHubModelsBaseURL)
-	}
-	if cfg.Model != "" {
-		os.Setenv("common.EnvDefaultModel", cfg.Model)
-	}
-	if cfg.Provider != "" {
-		os.Setenv("common.EnvDefaultProvider", cfg.Provider)
-	}
-	if cfg.GitHubClientID != "" {
-		os.Setenv("common.EnvGitHubClientID", cfg.GitHubClientID)
-	}
-}
 
 func EnsureEnv(forceSetup bool) (*TerminusAIConfig, error) {
 	cfg, err := LoadConfig()
@@ -102,11 +79,9 @@ func EnsureEnv(forceSetup bool) (*TerminusAIConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		applyEnvFromConfig(updated)
 		return updated, nil
 	}
 
-	applyEnvFromConfig(cfg)
 	return cfg, nil
 }
 
@@ -303,7 +278,6 @@ func SetPreferredModel(provider, model string) (*TerminusAIConfig, error) {
 		return nil, err
 	}
 
-	applyEnvFromConfig(cfg)
 	return cfg, nil
 }
 
