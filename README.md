@@ -6,11 +6,12 @@ TerminusAI is a powerful CLI tool that uses AI to understand your tasks and gene
 
 ## ✨ Key Features
 
-🧠 **Smart Command Planning** - AI breaks down complex tasks into step-by-step commands  
-🔌 **Multi-Provider Support** - Works with OpenAI, Anthropic Claude, and GitHub Models  
+🧠 **Smart Command Understanding** - AI interprets natural language and executes the right commands  
+🔌 **Multi-Provider Support** - Works with OpenAI, Anthropic Claude, and GitHub Copilot  
 🔍 **Interactive Agent Mode** - Inspects files and executes tasks iteratively  
 🛡️ **Security First** - Every command requires your approval with persistent policies  
-🌍 **Cross-Platform** - Runs seamlessly on Windows, macOS, and Linux
+🌍 **Cross-Platform** - Runs seamlessly on Windows, macOS, and Linux  
+⚡ **Simple Interface** - No subcommands needed, just ask what you want
 
 ## 🚀 Quick Setup
 
@@ -26,7 +27,7 @@ make install
 - **API Key** from one of:
   - OpenAI (GPT-4o, o4-mini)
   - Anthropic (Claude 3.5 Sonnet/Haiku)
-  - GitHub (Models access)
+  - GitHub (Copilot access)
 
 ## 🏃 Get Started in 30 Seconds
 
@@ -34,28 +35,49 @@ make install
 # 1. Configure your AI provider
 ./terminusai setup
 
-# 2. Run any task with natural language
-./terminusai run "create a docker image from this directory"
-
-# 3. Use agent mode for complex, multi-step tasks
-./terminusai agent "build this project into an executable"
+# 2. Ask anything in natural language
+./terminusai "1+1=?"
+./terminusai "create a docker image from this directory"
+./terminusai "build this project into an executable"
 ```
 
 ## 📖 Usage
 
-### Core Commands
+### Simple and Direct
+
+Just ask TerminusAI what you want to do:
+
+```bash
+# Math and general questions
+terminusai "what is 2+2?"
+terminusai "explain what Docker is"
+
+# File operations
+terminusai "list all Python files in this directory"
+terminusai "create a README file for this project"
+
+# Development tasks
+terminusai "install dependencies and run tests"
+terminusai "build this Go project"
+terminusai "format all code files"
+
+# System administration
+terminusai "check disk usage"
+terminusai "find large files in this directory"
+```
+
+### Utility Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `terminusai run <task>` | Execute single tasks with AI planning | `terminusai run "deploy to staging"` |
-| `terminusai agent <task>` | Interactive mode for complex tasks | `terminusai agent "refactor this codebase"` |
 | `terminusai setup` | Configure AI providers & credentials | `terminusai setup` |
 | `terminusai model` | Change AI model settings | `terminusai model --provider openai` |
+| `terminusai config` | View current configuration | `terminusai config` |
 
 ### Common Flags
-- `--provider` - Choose AI provider (openai/anthropic/github)
-- `--dry-run` - Show plan without executing
+- `--provider` - Choose AI provider (openai/anthropic/copilot)
 - `--verbose` - Detailed logging
+- `--debug` - Maximum debug output
 
 ## ⚙️ Configuration
 
@@ -69,7 +91,7 @@ Settings stored in `~/.terminusai/`:
 |----------|--------|--------------|
 | **OpenAI** | GPT-4o, GPT-4o-mini, o4-mini | `OPENAI_API_KEY` |
 | **Anthropic** | Claude 3.5 Sonnet/Haiku | `ANTHROPIC_API_KEY` |
-| **GitHub** | GPT-4o (via GitHub) | `GITHUB_TOKEN` |
+| **GitHub** | Copilot models | `GITHUB_TOKEN` |
 
 ## 🔐 Security
 

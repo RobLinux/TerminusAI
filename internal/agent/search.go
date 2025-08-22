@@ -117,39 +117,3 @@ func performFileSearch(pattern, searchPath string, fileTypes []string, caseSensi
 	return results, nil
 }
 
-// listDir recursively lists directory contents
-func listDir(dir string, depth int, lines *[]string, base string) error {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-
-	heavy := map[string]bool{
-		"node_modules": true, ".git": true, "dist": true, "build": true, "out": true,
-		".next": true, "coverage": true, ".venv": true, "venv": true, "__pycache__": true,
-		"target": true, ".turbo": true, ".cache": true, "bin": true, "obj": true,
-		".vs": true, "packages": true, "TestResults": true,
-	}
-
-	for _, entry := range entries {
-		p := filepath.Join(dir, entry.Name())
-		rel, err := filepath.Rel(base, p)
-		if err != nil {
-			rel = p
-		}
-		if rel == "" {
-			rel = "."
-		}
-
-		if entry.IsDir() {
-			*lines = append(*lines, rel+"/")
-			if depth > 0 && !heavy[entry.Name()] {
-				listDir(p, depth-1, lines, base)
-			}
-		} else {
-			*lines = append(*lines, rel)
-		}
-	}
-
-	return nil
-}
