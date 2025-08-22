@@ -10,12 +10,14 @@ import (
 
 // Agent provides an agent with UI and interactivity
 type Agent struct {
-	provider    providers.LLMProvider
-	policyStore *policy.Store
-	display     *ui.InteractiveDisplay
-	workingDir  string
-	verbose     bool
-	debug       bool
+	provider           providers.LLMProvider
+	policyStore        *policy.Store
+	display            *ui.InteractiveDisplay
+	workingDir         string
+	verbose            bool
+	debug              bool
+	lastSuccessOutput  string // Track last successful command output
+	lastSuccessCommand string // Track last successful command for context
 }
 
 // NewAgent creates a new agent

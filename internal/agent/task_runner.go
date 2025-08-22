@@ -1,13 +1,46 @@
 package agent
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"terminusai/internal/policy"
 	"terminusai/internal/providers"
 	"terminusai/internal/ui"
 )
+
+// Constants for output display
+const (
+	MaxDisplayOutputSize = 2048 // Maximum characters to display in done summary
+)
+
+// waitForFullOutputRequest waits for user input and shows full output if requested
+func waitForFullOutputRequest(fullOutput string) {
+	fmt.Printf("\nPress 'r' to see full output, or Enter to continue: ")
+
+	reader := bufio.NewReader(os.Stdin)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+
+	input = strings.TrimSpace(strings.ToLower(input))
+
+	// Check if user wants to see full output
+	if input == "r" || input == "full" || input == "show" || input == "all" {
+		fmt.Println()
+		ui.Primary.Printf("▶ Full Command Output\n")
+		ui.Muted.Printf("─────────────────────────────────────────────────────────────────────────────────\n")
+		fmt.Print(fullOutput)
+		if !strings.HasSuffix(fullOutput, "\n") {
+			fmt.Println()
+		}
+		fmt.Println()
+	}
+}
 
 // RunAgentTask executes an agent task with retry mechanisms and enhanced functionality
 func RunAgentTask(task string, provider providers.LLMProvider, policyStore *policy.Store, verbose bool) error {
@@ -117,9 +150,42 @@ func (a *Agent) RunTask(task string) error {
 				result = "Task completed successfully"
 			}
 
-			// Just show simple completion message
+			// Show completion message
 			fmt.Println()
 			ui.Success.Printf("✓ %s\n", result)
+
+			// Show last successful command output if available
+			if a.lastSuccessOutput != "" {
+				fmt.Println()
+				ui.Primary.Printf("▶ Last Command Output\n")
+				ui.Muted.Printf("─────────────────────────────────────────────────────────────────────────────────\n")
+
+				if len(a.lastSuccessOutput) <= MaxDisplayOutputSize {
+					// Show full output if it's within size limit
+					fmt.Print(a.lastSuccessOutput)
+					if !strings.HasSuffix(a.lastSuccessOutput, "\n") {
+						fmt.Println()
+					}
+				} else {
+					// Show truncated output with interactive option for full output
+					truncated := a.lastSuccessOutput[:MaxDisplayOutputSize]
+					// Find the last complete line to avoid cutting mid-line
+					if lastNewline := strings.LastIndex(truncated, "\n"); lastNewline > 0 {
+						truncated = truncated[:lastNewline+1]
+					}
+
+					fmt.Print(truncated)
+					if !strings.HasSuffix(truncated, "\n") {
+						fmt.Println()
+					}
+
+					ui.Warning.Printf("... [Output truncated - %d characters total]\n", len(a.lastSuccessOutput))
+
+					// Wait for user input to show full output
+					waitForFullOutputRequest(a.lastSuccessOutput)
+				}
+			}
+
 			a.display.ShowAgentSummary()
 			return nil
 

@@ -421,6 +421,12 @@ func (a *Agent) handleShell(action *AgentAction, transcript *[]providers.ChatMes
 			}
 		}
 
+		// Capture last successful command output for potential display in done summary
+		if outputStr != "" {
+			a.lastSuccessOutput = outputStr
+			a.lastSuccessCommand = action.Command
+		}
+
 		actionUI.Summary = ui.TruncateForSummary(summary, 60)
 		a.display.UpdateAction(actionUI, "completed", []string{summary})
 
