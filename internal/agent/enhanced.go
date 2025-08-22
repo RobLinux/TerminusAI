@@ -146,6 +146,11 @@ func (ea *EnhancedAgent) RunTask(task string) error {
 				return err
 			}
 
+		case "write_file":
+			if err := ea.handleWriteFileEnhanced(action, &transcript); err != nil {
+				return err
+			}
+
 		default:
 			errorMsg := fmt.Sprintf("Unknown action type: %s", action.Type)
 			transcript = append(transcript, providers.ChatMessage{Role: "user", Content: errorMsg})
@@ -556,4 +561,104 @@ func (ea *EnhancedAgent) performFileSearch(pattern, searchPath string, fileTypes
 	}
 
 	return results, nil
+}
+
+// handleWriteFileEnhanced handles write_file with enhanced UI
+func (ea *EnhancedAgent) handleWriteFileEnhanced(action *AgentAction, transcript *[]providers.ChatMessage) error {
+	filePath := action.Path
+	if !filepath.IsAbs(filePath) {
+		filePath = filepath.Join(ea.workingDir, action.Path)
+	}
+
+	operation := "Write"
+	if *action.Append {
+		operation = "Append to"
+	}
+
+	// Show the action with preview of content
+	contentPreview := action.Content
+	if len(contentPreview) > 100 {
+		contentPreview = contentPreview[:100] + "..."
+	}
+	contentPreview = strings.ReplaceAll(contentPreview, "\n", " ")
+
+	actionUI := ea.display.ShowAction(
+		fmt.Sprintf("%s file", operation),
+		fmt.Sprintf("File: %s", action.Path),
+		true, // needs approval
+	)
+
+	reason := action.Reason
+	if reason == "" {
+		if *action.Append {
+			reason = fmt.Sprintf("Append content to file %s", action.Path)
+		} else {
+			reason = fmt.Sprintf("Write content to file %s", action.Path)
+		}
+	}
+
+	decision, err := ea.policyStore.Approve(fmt.Sprintf("write_file %s", action.Path), reason)
+	if err != nil {
+		ea.display.UpdateAction(actionUI, "failed", []string{fmt.Sprintf("Failed to get approval: %s", err.Error())})
+		return fmt.Errorf("failed to get approval: %w", err)
+	}
+
+	actionJSON, _ := json.Marshal(action)
+
+	if decision == policy.DecisionNever || decision == policy.DecisionSkip {
+		ea.display.UpdateAction(actionUI, "skipped", []string{"Skipped by user"})
+		*transcript = append(*transcript,
+			providers.ChatMessage{Role: "assistant", Content: string(actionJSON)},
+			providers.ChatMessage{Role: "user", Content: "observation:write_file skipped by user"},
+		)
+		return nil
+	}
+
+	// Ensure parent directory exists
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		errorMsg := fmt.Sprintf("Failed to create parent directory: %s", err.Error())
+		ea.display.UpdateAction(actionUI, "failed", []string{errorMsg})
+		*transcript = append(*transcript,
+			providers.ChatMessage{Role: "assistant", Content: string(actionJSON)},
+			providers.ChatMessage{Role: "user", Content: fmt.Sprintf("observation:write_file error\n%s", errorMsg)},
+		)
+		return nil
+	}
+
+	var writeErr error
+	if *action.Append {
+		// Append to file
+		file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			writeErr = err
+		} else {
+			defer file.Close()
+			_, writeErr = file.WriteString(action.Content)
+		}
+	} else {
+		// Write (overwrite) file
+		writeErr = os.WriteFile(filePath, []byte(action.Content), 0644)
+	}
+
+	if writeErr != nil {
+		errorMsg := writeErr.Error()
+		ea.display.UpdateAction(actionUI, "failed", []string{errorMsg})
+		*transcript = append(*transcript,
+			providers.ChatMessage{Role: "assistant", Content: string(actionJSON)},
+			providers.ChatMessage{Role: "user", Content: fmt.Sprintf("observation:write_file error\n%s", errorMsg)},
+		)
+	} else {
+		operation := "written"
+		if *action.Append {
+			operation = "appended"
+		}
+		successMsg := fmt.Sprintf("Content %s to %s", operation, action.Path)
+		ea.display.UpdateAction(actionUI, "completed", []string{successMsg})
+		*transcript = append(*transcript,
+			providers.ChatMessage{Role: "assistant", Content: string(actionJSON)},
+			providers.ChatMessage{Role: "user", Content: fmt.Sprintf("observation:write_file success\n%s", successMsg)},
+		)
+	}
+
+	return nil
 }

@@ -23,6 +23,9 @@ type AgentAction struct {
 	FileTypes     []string `json:"fileTypes,omitempty"`
 	CaseSensitive *bool    `json:"caseSensitive,omitempty"`
 	MaxResults    *int     `json:"maxResults,omitempty"`
+	// Write file fields
+	Content string `json:"content,omitempty"`
+	Append  *bool  `json:"append,omitempty"`
 }
 
 // SearchResult represents a search match result
@@ -195,6 +198,17 @@ func validateAction(action *AgentAction) error {
 		if action.CaseSensitive == nil {
 			caseSensitive := false // Default to case-insensitive for better usability
 			action.CaseSensitive = &caseSensitive
+		}
+	case "write_file":
+		if action.Path == "" {
+			return fmt.Errorf("path is required for write_file")
+		}
+		if action.Content == "" {
+			return fmt.Errorf("content is required for write_file")
+		}
+		if action.Append == nil {
+			append := false
+			action.Append = &append
 		}
 	case "done":
 		if action.Result == "" {

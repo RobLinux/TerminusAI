@@ -35,7 +35,6 @@ includes security features to ensure all commands require explicit user consent.
 		NewSetupCommand(),
 		NewModelCommand(),
 		NewConfigCommand(),
-		NewCopilotCommand(),
 	)
 
 	return rootCmd

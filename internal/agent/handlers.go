@@ -316,3 +316,126 @@ func showSearchAction(action *AgentAction) {
 		muted.Printf("      File types: %s\n", strings.Join(action.FileTypes, ", "))
 	}
 }
+
+// handleWriteFile handles write_file action
+func handleWriteFile(action *AgentAction, transcript *[]providers.ChatMessage, policyStore *policy.Store, workingDir string, verbose bool) error {
+	if verbose {
+		fmt.Printf("[agent] action: write_file path=%s append=%t\n", action.Path, *action.Append)
+	}
+
+	filePath := action.Path
+	if !filepath.IsAbs(filePath) {
+		filePath = filepath.Join(workingDir, action.Path)
+	}
+
+	// Show what action is being requested
+	showWriteFileAction(action)
+
+	reason := action.Reason
+	if reason == "" {
+		if *action.Append {
+			reason = fmt.Sprintf("Append content to file %s", action.Path)
+		} else {
+			reason = fmt.Sprintf("Write content to file %s", action.Path)
+		}
+	}
+
+	decision, err := policyStore.Approve(fmt.Sprintf("write_file %s", action.Path), reason)
+	if err != nil {
+		return fmt.Errorf("failed to get approval: %w", err)
+	}
+
+	if verbose {
+		fmt.Printf("[agent] decision: %s\n", decision)
+	}
+
+	actionJSON, _ := json.Marshal(action)
+
+	if decision == policy.DecisionNever || decision == policy.DecisionSkip {
+		*transcript = append(*transcript,
+			providers.ChatMessage{Role: "assistant", Content: string(actionJSON)},
+			providers.ChatMessage{Role: "user", Content: "observation:write_file skipped by user"},
+		)
+		if verbose {
+			fmt.Println("[agent] observation: write_file skipped")
+		}
+		return nil
+	}
+
+	// Ensure parent directory exists
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		*transcript = append(*transcript,
+			providers.ChatMessage{Role: "assistant", Content: string(actionJSON)},
+			providers.ChatMessage{Role: "user", Content: fmt.Sprintf("observation:write_file error\nFailed to create parent directory: %s", err.Error())},
+		)
+		if verbose {
+			fmt.Printf("[agent] observation: write_file error - failed to create parent directory: %s\n", err.Error())
+		}
+		return nil
+	}
+
+	var err2 error
+	if *action.Append {
+		// Append to file
+		file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			err2 = err
+		} else {
+			defer file.Close()
+			_, err2 = file.WriteString(action.Content)
+		}
+	} else {
+		// Write (overwrite) file
+		err2 = os.WriteFile(filePath, []byte(action.Content), 0644)
+	}
+
+	if err2 != nil {
+		*transcript = append(*transcript,
+			providers.ChatMessage{Role: "assistant", Content: string(actionJSON)},
+			providers.ChatMessage{Role: "user", Content: fmt.Sprintf("observation:write_file error\n%s", err2.Error())},
+		)
+		if verbose {
+			fmt.Printf("[agent] observation: write_file error - %s\n", err2.Error())
+		}
+	} else {
+		operation := "written"
+		if *action.Append {
+			operation = "appended"
+		}
+		*transcript = append(*transcript,
+			providers.ChatMessage{Role: "assistant", Content: string(actionJSON)},
+			providers.ChatMessage{Role: "user", Content: fmt.Sprintf("observation:write_file success\nContent %s to %s", operation, action.Path)},
+		)
+		if verbose {
+			fmt.Printf("[agent] observation: write_file success - content %s to %s\n", operation, action.Path)
+		}
+	}
+
+	return nil
+}
+
+// showWriteFileAction displays the write file action before approval
+func showWriteFileAction(action *AgentAction) {
+	cyan := color.New(color.FgCyan)
+	white := color.New(color.FgWhite, color.Bold)
+	muted := color.New(color.FgHiBlack)
+
+	fmt.Println()
+
+	if *action.Append {
+		cyan.Printf("● Append content to file\n")
+	} else {
+		cyan.Printf("● Write content to file\n")
+	}
+
+	white.Printf("  ⎿  File: %s\n", action.Path)
+	
+	// Show a preview of the content
+	contentPreview := action.Content
+	if len(contentPreview) > 100 {
+		contentPreview = contentPreview[:100] + "..."
+	}
+	// Replace newlines with spaces for preview
+	contentPreview = strings.ReplaceAll(contentPreview, "\n", " ")
+	muted.Printf("      Content: %s\n", contentPreview)
+}

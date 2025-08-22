@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(rm:*)",
+      "Bash(del \"C:\\Code\\terminusai\\cmd\\terminusai\\commands\\write.go\")",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []

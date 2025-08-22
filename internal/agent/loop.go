@@ -17,6 +17,7 @@ Available tools (use EXACTLY one per response):
 - list_files { path: string, depth?: 0-3 } -> list directory contents
 - read_file { path: string, maxBytes?: number } -> read a text file  
 - search_files { pattern: string, path?: string, fileTypes?: ["go","js","py"], caseSensitive?: boolean, maxResults?: number } -> search for text patterns in files using regex
+- write_file { path: string, content: string, append?: boolean, reason?: string } -> write or append content to a file (requires approval)
 - shell { shell: "powershell"|"bash"|"cmd", command: string, cwd?: string, reason?: string } -> execute a command (requires approval)
 - done { result: string } -> finish task with summary
 
@@ -160,6 +161,11 @@ func RunAgentTaskWithWorkingDir(task string, provider providers.LLMProvider, pol
 
 		case "shell":
 			if err := handleShell(action, &transcript, policyStore, workingDir, verbose); err != nil {
+				return err
+			}
+
+		case "write_file":
+			if err := handleWriteFile(action, &transcript, policyStore, workingDir, verbose); err != nil {
 				return err
 			}
 
